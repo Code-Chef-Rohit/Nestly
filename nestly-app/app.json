@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "Nestly",
+    "slug": "nestly",
+    "scheme": "nestly",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#1F8A70"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nestly.app"
+    },
+    "android": {
+      "package": "com.nestly.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#1F8A70"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
