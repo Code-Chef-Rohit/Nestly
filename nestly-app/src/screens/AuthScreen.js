@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import colors from "../theme/colors";
+import colors, { shadows, radii } from "../theme/colors";
 import { useAuth } from "../context/AuthContext";
 
 export default function AuthScreen() {
@@ -282,24 +282,26 @@ const styles = StyleSheet.create({
   tabSwitch: {
     flexDirection: "row",
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: radii.xl,
     padding: 5,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.borderLight,
     marginBottom: 22,
+    ...shadows.sm,
   },
   tabBtn: {
     flex: 1,
     paddingVertical: 12,
     alignItems: "center",
-    borderRadius: 10,
+    borderRadius: radii.md,
   },
   tabBtnActive: {
     backgroundColor: colors.primary,
+    ...shadows.sm,
   },
   tabBtnText: {
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "800",
     color: colors.textMuted,
   },
   tabBtnTextActive: {
@@ -307,15 +309,11 @@ const styles = StyleSheet.create({
   },
   form: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 22,
+    borderRadius: radii.xl,
+    padding: 24,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    ...shadows.card,
   },
   fieldGroup: {
     marginBottom: 16,
@@ -323,14 +321,14 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14.5,
     color: colors.text,
-    fontWeight: "700",
+    fontWeight: "800",
     marginBottom: 8,
   },
   input: {
     backgroundColor: colors.background,
     borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: 14,
+    borderColor: colors.borderLight,
+    borderRadius: radii.md,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
@@ -342,8 +340,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.background,
     borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: 14,
+    borderColor: colors.borderLight,
+    borderRadius: radii.md,
     height: 52,
   },
   passwordInput: {
@@ -365,28 +363,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#FCA5A5",
     padding: 12,
-    borderRadius: 12,
+    borderRadius: radii.md,
     marginTop: 4,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   errorText: {
     flex: 1,
     color: colors.danger,
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   primaryBtn: {
     backgroundColor: colors.primary,
-    borderRadius: 14,
+    borderRadius: radii.md,
     height: 54,
     justifyContent: "center",
     alignItems: "center",
     marginTop: 8,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    ...shadows.button,
   },
   primaryBtnText: {
     color: "#fff",

@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import colors from "../theme/colors";
+import colors, { shadows, radii } from "../theme/colors";
 import { FEED_CATEGORIES } from "../constants/categories";
 import { supabase, isSupabaseConfigured } from "../config/supabase";
 import { useAuth } from "../context/AuthContext";
@@ -196,12 +196,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   chip: {
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.borderLight,
-    borderRadius: 22,
+    borderRadius: radii.pill,
     paddingHorizontal: 16,
     paddingVertical: 10,
     backgroundColor: colors.surface,
+    ...shadows.sm,
   },
   chipActive: {
     backgroundColor: colors.primary,
@@ -210,16 +211,16 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 14,
     color: colors.textMuted,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   chipTextActive: {
     color: "#fff",
   },
   textArea: {
     backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: radii.xl,
     padding: 16,
     minHeight: 140,
     fontSize: 16,
@@ -227,6 +228,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     lineHeight: 23,
     marginBottom: 24,
+    ...shadows.sm,
   },
   submitBtn: {
     flexDirection: "row",
@@ -234,13 +236,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     backgroundColor: colors.primary,
-    borderRadius: 16,
+    borderRadius: radii.pill,
     height: 54,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    ...shadows.button,
   },
   submitBtnText: {
     color: "#fff",

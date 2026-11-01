@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import colors from "../theme/colors";
+import colors, { shadows, radii } from "../theme/colors";
 import PostCard from "../components/PostCard";
 import { FEED_CATEGORIES } from "../constants/categories";
 import { supabase, isSupabaseConfigured } from "../config/supabase";
@@ -203,18 +203,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingHorizontal: 16,
+    borderRadius: radii.pill,
+    paddingHorizontal: 18,
     paddingVertical: 10,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
+    ...shadows.button,
   },
   postBtnText: {
     color: "#fff",
-    fontWeight: "800",
+    fontWeight: "900",
     fontSize: 15,
   },
   filterBar: {
@@ -223,14 +219,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   chip: {
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.borderLight,
-    borderRadius: 20,
+    borderRadius: radii.pill,
     paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: colors.surface,
     height: 40,
     justifyContent: "center",
+    ...shadows.sm,
   },
   chipActive: {
     backgroundColor: colors.primary,
@@ -239,7 +236,7 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 13.5,
     color: colors.textMuted,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   chipTextActive: {
     color: "#fff",

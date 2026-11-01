@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
-import colors from "../theme/colors";
+import colors, { shadows, radii } from "../theme/colors";
 import ServiceCard from "../components/ServiceCard";
 import IssueCard from "../components/IssueCard";
 import { SERVICE_CATEGORIES } from "../constants/categories";
@@ -292,16 +292,12 @@ const styles = StyleSheet.create({
   addServiceBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
     backgroundColor: colors.primary,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 9,
-    borderRadius: 12,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: radii.pill,
+    ...shadows.button,
   },
   addServiceBtnText: {
     color: "#fff",
@@ -311,12 +307,13 @@ const styles = StyleSheet.create({
   tabRow: {
     flexDirection: "row",
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: radii.xl,
     padding: 5,
     marginHorizontal: 20,
     marginBottom: 14,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.borderLight,
+    ...shadows.sm,
   },
   tab: {
     flex: 1,
@@ -325,10 +322,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 10,
+    borderRadius: radii.md,
   },
   tabActive: {
     backgroundColor: colors.primary,
+    ...shadows.sm,
   },
   tabText: {
     fontSize: 14.5,
@@ -343,24 +341,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.primaryLight,
     borderWidth: 1.5,
-    borderColor: colors.primary,
-    borderRadius: 14,
-    padding: 12,
+    borderColor: "rgba(13,122,95,0.25)",
+    borderRadius: radii.xl,
+    padding: 14,
     marginHorizontal: 20,
     marginBottom: 14,
-    gap: 10,
+    gap: 12,
+    ...shadows.card,
   },
   partnerIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
+    ...shadows.sm,
   },
   partnerBannerTitle: {
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 14.5,
+    fontWeight: "900",
     color: colors.primaryDark,
   },
   partnerBannerSubtitle: {

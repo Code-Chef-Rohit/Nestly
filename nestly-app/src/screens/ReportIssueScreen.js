@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import colors from "../theme/colors";
+import colors, { shadows, radii } from "../theme/colors";
 import { ISSUE_CATEGORIES } from "../constants/categories";
 import { supabase, isSupabaseConfigured } from "../config/supabase";
 import { useAuth } from "../context/AuthContext";
@@ -19,6 +19,7 @@ import { useAuth } from "../context/AuthContext";
 export default function ReportIssueScreen({ navigation }) {
   const { community, user } = useAuth();
   const [category, setCategory] = useState(null);
+  const [priority, setPriority] = useState("Normal");
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -39,6 +40,7 @@ export default function ReportIssueScreen({ navigation }) {
     setSubmitting(true);
     try {
       let issueId = `NEST-${Math.floor(1000 + Math.random() * 9000)}`;
+      const fullDesc = priority !== "Normal" ? `[${priority.toUpperCase()} PRIORITY] ${description.trim()}` : description.trim();
       if (isSupabaseConfigured && user?.id) {
         const { data, error } = await supabase
           .from("issues")
@@ -46,7 +48,7 @@ export default function ReportIssueScreen({ navigation }) {
             community_id: community.id,
             user_id: user.id,
             category,
-            description: description.trim(),
+            description: fullDesc,
             status: "Reported",
           })
           .select()
@@ -143,8 +145,38 @@ export default function ReportIssueScreen({ navigation }) {
             })}
           </View>
 
-          {/* Description / Step 2 */}
-          <Text style={styles.stepTitle}>2. Describe the problem</Text>
+          {/* Urgency / Step 2 */}
+          <Text style={styles.stepTitle}>2. How urgent is it?</Text>
+          <Text style={styles.stepSubtitle}>Select urgency level to prioritize response:</Text>
+
+          <View style={styles.priorityRow}>
+            {[
+              { key: "Normal", label: "Normal", icon: "time-outline", color: colors.primary },
+              { key: "High", label: "Important", icon: "alert-circle-outline", color: colors.warning },
+              { key: "Urgent", label: "Urgent SOS", icon: "warning-outline", color: colors.danger },
+            ].map((p) => {
+              const active = priority === p.key;
+              return (
+                <TouchableOpacity
+                  key={p.key}
+                  style={[
+                    styles.priorityPill,
+                    active && { backgroundColor: p.color, borderColor: p.color },
+                  ]}
+                  onPress={() => setPriority(p.key)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name={p.icon} size={16} color={active ? "#fff" : p.color} />
+                  <Text style={[styles.priorityPillText, active && { color: "#fff" }]}>
+                    {p.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Description / Step 3 */}
+          <Text style={styles.stepTitle}>3. Describe the problem</Text>
           <Text style={styles.stepSubtitle}>
             Add details like tower, flat number, street or landmark:
           </Text>
@@ -244,24 +276,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
     paddingHorizontal: 6,
-    borderRadius: 16,
+    borderRadius: radii.xl,
     backgroundColor: colors.surface,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.borderLight,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    ...shadows.card,
   },
   categoryTileActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primaryDark,
   },
   iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 6,
@@ -276,16 +304,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.text,
     textAlign: "center",
-    fontWeight: "700",
+    fontWeight: "800",
   },
   categoryLabelActive: {
     color: "#fff",
   },
-  textArea: {
+  priorityRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 20,
+  },
+  priorityPill: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 11,
+    paddingHorizontal: 8,
+    borderRadius: radii.pill,
     backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: 16,
+    borderColor: colors.borderLight,
+    ...shadows.sm,
+  },
+  priorityPillText: {
+    fontSize: 13.5,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  textArea: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: radii.xl,
     padding: 16,
     minHeight: 120,
     fontSize: 16,
@@ -293,6 +345,7 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     marginBottom: 24,
     lineHeight: 22,
+    ...shadows.sm,
   },
   submitBtn: {
     flexDirection: "row",
@@ -300,13 +353,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     backgroundColor: colors.primary,
-    borderRadius: 16,
+    borderRadius: radii.pill,
     height: 54,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    ...shadows.button,
   },
   submitBtnText: {
     color: "#fff",

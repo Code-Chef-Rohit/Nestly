@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useQueryClient } from "@tanstack/react-query";
-import colors from "../theme/colors";
+import colors, { shadows, radii } from "../theme/colors";
 import { SERVICE_CATEGORIES } from "../constants/categories";
 import { supabase, isSupabaseConfigured } from "../config/supabase";
 import { useAuth } from "../context/AuthContext";
@@ -509,13 +509,14 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: radii.md,
     paddingHorizontal: 16,
     height: 52,
     fontSize: 15.5,
     color: colors.text,
+    ...shadows.sm,
   },
   chipRow: {
     gap: 10,
@@ -523,14 +524,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   chip: {
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.borderLight,
-    borderRadius: 20,
+    borderRadius: radii.pill,
     paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: colors.surface,
     height: 40,
     justifyContent: "center",
+    ...shadows.sm,
   },
   chipActive: {
     backgroundColor: colors.primary,
@@ -539,30 +541,32 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 13.5,
     color: colors.textMuted,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   chipTextActive: {
     color: "#fff",
   },
   textArea: {
     backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: radii.md,
     padding: 14,
     minHeight: 90,
     fontSize: 15.5,
     color: colors.text,
     textAlignVertical: "top",
+    ...shadows.sm,
   },
   commissionCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: radii.xl,
+    padding: 18,
     borderWidth: 1.5,
-    borderColor: colors.primary,
+    borderColor: "rgba(13,122,95,0.3)",
     marginBottom: 22,
     marginTop: 4,
+    ...shadows.card,
   },
   commissionHeader: {
     flexDirection: "row",
@@ -572,7 +576,7 @@ const styles = StyleSheet.create({
   },
   commissionTitle: {
     fontSize: 16,
-    fontWeight: "800",
+    fontWeight: "900",
     color: colors.primaryDark,
   },
   commissionRow: {
@@ -593,13 +597,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     backgroundColor: colors.primary,
-    borderRadius: 16,
+    borderRadius: radii.pill,
     height: 54,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    ...shadows.button,
   },
   submitBtnText: {
     color: "#fff",
@@ -608,18 +608,19 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: "rgba(15, 23, 42, 0.65)",
     justifyContent: "flex-end",
   },
   modalCard: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 22,
-    paddingBottom: 36,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 38,
     maxWidth: 520,
     width: "100%",
     alignSelf: "center",
+    ...shadows.cardHover,
   },
   modalHeader: {
     flexDirection: "row",
