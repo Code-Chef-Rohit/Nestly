@@ -90,7 +90,7 @@ export default function JoinCommunityScreen({ route, navigation }) {
     if (!selected) {
       Alert.alert(
         "Select a Community",
-        "Please select a community or create a new one for your area."
+        "Please tap a community to select it, or create a new one for your area."
       );
       return;
     }
@@ -98,7 +98,6 @@ export default function JoinCommunityScreen({ route, navigation }) {
     const chosen = communities.find((c) => c.id === selected);
     try {
       if (isSupabaseConfigured && user?.id && chosen?.id) {
-        // Record membership in Supabase
         await supabase.from("community_members").upsert({
           community_id: chosen.id,
           user_id: user.id,
@@ -155,7 +154,6 @@ export default function JoinCommunityScreen({ route, navigation }) {
       setCreateModalVisible(false);
       await joinCommunity(created);
 
-      // Offer to immediately invite neighbours after creating
       Alert.alert(
         "Community Created! 🎉",
         `"${created.name}" is now live on Nestly. Would you like to share the invite link with your neighbours?`,
@@ -176,112 +174,119 @@ export default function JoinCommunityScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Communities</Text>
-        <View style={{ width: 24 }} />
-      </View>
+      <View style={styles.contentWrap}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="arrow-back" size={26} color={colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.title}>Neighbourhoods</Text>
+          <View style={{ width: 26 }} />
+        </View>
 
-      <Text style={styles.subtitle}>
-        {query ? `Showing communities for "${query}"` : "Join your neighbourhood community"}
-      </Text>
+        <Text style={styles.subtitle}>
+          {query ? `Showing communities for "${query}"` : "Join your neighbourhood community"}
+        </Text>
 
-      {/* Real-time Search Box */}
-      <View style={styles.searchBox}>
-        <Ionicons name="search" size={18} color={colors.textMuted} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search area, locality or pincode"
-          placeholderTextColor={colors.textMuted}
-          value={query}
-          onChangeText={(txt) => {
-            setQuery(txt);
-            fetchCommunities(txt);
-          }}
-        />
-        {query.length > 0 && (
-          <TouchableOpacity onPress={() => { setQuery(""); fetchCommunities(""); }}>
-            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+        {/* Real-time Search Box */}
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={20} color={colors.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search area, locality or pincode"
+            placeholderTextColor={colors.textMuted}
+            value={query}
+            onChangeText={(txt) => {
+              setQuery(txt);
+              fetchCommunities(txt);
+            }}
+          />
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => { setQuery(""); fetchCommunities(""); }}>
+              <Ionicons name="close-circle" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {loading ? (
+          <View style={styles.centerBox}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Searching real communities...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={communities}
+            keyExtractor={(item) => String(item.id)}
+            contentContainerStyle={{ paddingVertical: 10, paddingBottom: 20 }}
+            renderItem={({ item }) => {
+              const isSelected = selected === item.id;
+              return (
+                <TouchableOpacity
+                  style={[styles.card, isSelected && styles.cardSelected]}
+                  onPress={() => setSelected(item.id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.cardIcon}>
+                    <Ionicons name="business" size={22} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.cardTitle}>{item.name}</Text>
+                    <Text style={styles.cardSubtitle}>{item.address || "Local Area"}</Text>
+                  </View>
+                  <Ionicons
+                    name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+                    size={24}
+                    color={isSelected ? colors.primary : colors.border}
+                  />
+                </TouchableOpacity>
+              );
+            }}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIconCircle}>
+                  <Ionicons name="location-outline" size={36} color={colors.primary} />
+                </View>
+                <Text style={styles.emptyTitle}>No community registered yet</Text>
+                <Text style={styles.emptySubtitle}>
+                  Be the first to activate the community for{" "}
+                  <Text style={{ fontWeight: "700", color: colors.text }}>
+                    {query || "this pincode"}
+                  </Text>
+                  !
+                </Text>
+                <TouchableOpacity
+                  style={styles.createBtn}
+                  onPress={() => {
+                    setNewCommunityName(query || "");
+                    setNewCommunityAddress(query || "");
+                    setCreateModalVisible(true);
+                  }}
+                >
+                  <Ionicons name="add" size={20} color="#fff" />
+                  <Text style={styles.createBtnText}>Create This Community</Text>
+                </TouchableOpacity>
+              </View>
+            }
+          />
+        )}
+
+        {communities.length > 0 && (
+          <TouchableOpacity
+            style={styles.joinBtn}
+            onPress={handleJoin}
+            disabled={requesting || !selected}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.joinBtnText}>
+              {requesting ? "Joining Community..." : "Join Selected Community"}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {loading ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Searching real communities...</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={communities}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingVertical: 10 }}
-          renderItem={({ item }) => {
-            const isSelected = selected === item.id;
-            return (
-              <TouchableOpacity
-                style={[styles.card, isSelected && styles.cardSelected]}
-                onPress={() => setSelected(item.id)}
-              >
-                <View style={styles.cardIcon}>
-                  <Ionicons name="home-outline" size={20} color={colors.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.cardTitle}>{item.name}</Text>
-                  <Text style={styles.cardSubtitle}>{item.address || "Local Area"}</Text>
-                </View>
-                <Ionicons
-                  name={isSelected ? "radio-button-on" : "radio-button-off"}
-                  size={20}
-                  color={isSelected ? colors.primary : colors.border}
-                />
-              </TouchableOpacity>
-            );
-          }}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <Ionicons name="location-outline" size={32} color={colors.primary} />
-              </View>
-              <Text style={styles.emptyTitle}>No community registered yet</Text>
-              <Text style={styles.emptySubtitle}>
-                Be the first to create and activate the community for{" "}
-                <Text style={{ fontWeight: "700", color: colors.text }}>
-                  {query || "this pincode"}
-                </Text>
-                !
-              </Text>
-              <TouchableOpacity
-                style={styles.createBtn}
-                onPress={() => {
-                  setNewCommunityName(query || "");
-                  setNewCommunityAddress(query || "");
-                  setCreateModalVisible(true);
-                }}
-              >
-                <Ionicons name="add" size={18} color="#fff" />
-                <Text style={styles.createBtnText}>Create This Community</Text>
-              </TouchableOpacity>
-            </View>
-          }
-        />
-      )}
-
-      {communities.length > 0 && (
-        <TouchableOpacity
-          style={styles.joinBtn}
-          onPress={handleJoin}
-          disabled={requesting || !selected}
-        >
-          <Text style={styles.joinBtnText}>
-            {requesting ? "Joining..." : "Join Community"}
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Modal: Create New Community for Real Pincode */}
+      {/* Modal: Create New Community */}
       <Modal
         visible={createModalVisible}
         transparent
@@ -293,7 +298,7 @@ export default function JoinCommunityScreen({ route, navigation }) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Create New Community</Text>
               <TouchableOpacity onPress={() => setCreateModalVisible(false)}>
-                <Ionicons name="close-circle" size={24} color={colors.textMuted} />
+                <Ionicons name="close-circle" size={26} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -335,8 +340,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    padding: 20,
-    paddingTop: 55,
+    paddingTop: 54,
+  },
+  contentWrap: {
+    flex: 1,
+    width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
+    paddingHorizontal: 20,
   },
   header: {
     flexDirection: "row",
@@ -346,11 +357,11 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 22,
-    fontWeight: "800",
+    fontWeight: "900",
     color: colors.text,
   },
   subtitle: {
-    fontSize: 13.5,
+    fontSize: 14,
     color: colors.textMuted,
     marginBottom: 16,
   },
@@ -358,17 +369,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 52,
     marginBottom: 12,
-    gap: 8,
+    gap: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14.5,
+    fontSize: 15.5,
     color: colors.text,
   },
   centerBox: {
@@ -379,53 +390,65 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     color: colors.textMuted,
-    fontSize: 13.5,
+    fontSize: 14,
+    fontWeight: "600",
   },
   card: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 14,
     backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: 14,
-    padding: 14,
+    borderColor: colors.borderLight,
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
   },
   cardSelected: {
     borderColor: colors.primary,
     backgroundColor: colors.primaryLight,
   },
   cardIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
   },
   cardTitle: {
-    fontWeight: "700",
+    fontWeight: "800",
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
   },
   cardSubtitle: {
-    fontSize: 12.5,
+    fontSize: 13,
     color: colors.textMuted,
     marginTop: 2,
   },
   joinBtn: {
     backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 15,
+    borderRadius: 16,
+    height: 54,
     alignItems: "center",
+    justifyContent: "center",
     marginTop: 8,
-    marginBottom: 16,
+    marginBottom: 24,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   joinBtnText: {
     color: "#fff",
-    fontWeight: "700",
-    fontSize: 15,
+    fontWeight: "800",
+    fontSize: 16,
   },
   emptyContainer: {
     alignItems: "center",
@@ -433,40 +456,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 14,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 17,
+    fontWeight: "800",
     color: colors.text,
     marginBottom: 6,
   },
   emptySubtitle: {
-    fontSize: 13.5,
+    fontSize: 14,
     color: colors.textMuted,
     textAlign: "center",
-    lineHeight: 19,
+    lineHeight: 20,
     marginBottom: 20,
   },
   createBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 12,
   },
   createBtnText: {
     color: "#fff",
-    fontWeight: "700",
-    fontSize: 14,
+    fontWeight: "800",
+    fontSize: 15,
   },
   modalOverlay: {
     flex: 1,
@@ -479,6 +502,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 24,
     paddingBottom: 40,
+    maxWidth: 500,
+    width: "100%",
+    alignSelf: "center",
   },
   modalHeader: {
     flexDirection: "row",
@@ -487,37 +513,38 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "800",
     color: colors.text,
   },
   label: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.text,
-    fontWeight: "600",
+    fontWeight: "700",
     marginBottom: 6,
     marginTop: 12,
   },
   input: {
     backgroundColor: colors.background,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
+    height: 50,
+    fontSize: 15.5,
     color: colors.text,
   },
   primaryBtn: {
     backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 14,
+    height: 52,
     alignItems: "center",
+    justifyContent: "center",
     marginTop: 22,
   },
   primaryBtnText: {
     color: "#fff",
-    fontWeight: "700",
-    fontSize: 15,
+    fontWeight: "800",
+    fontSize: 16,
   },
 });

@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,15 +24,15 @@ export default function ReportIssueScreen({ navigation }) {
 
   async function handleSubmit() {
     if (!category) {
-      Alert.alert("Select Category", "Please select what kind of issue this is.");
+      Alert.alert("Choose Category", "Please tap one of the issue categories below.");
       return;
     }
     if (!description.trim()) {
-      Alert.alert("Description Required", "Please describe the problem.");
+      Alert.alert("Describe Issue", "Please enter a short description of the problem.");
       return;
     }
     if (!community?.id) {
-      Alert.alert("No Community", "Please join a community first to report an issue.");
+      Alert.alert("No Community Selected", "Please select your community before submitting.");
       return;
     }
 
@@ -55,124 +57,260 @@ export default function ReportIssueScreen({ navigation }) {
       }
 
       Alert.alert(
-        "Issue Reported! 📋",
-        `Report ${issueId} has been submitted for ${community.name} and is now under review.`,
-        [{ text: "OK", onPress: () => navigation.goBack() }]
+        "Issue Submitted! 📋",
+        `Your report #${issueId} for ${community.name} has been recorded. Maintenance & community leads have been notified.`,
+        [{ text: "Done", onPress: () => navigation.goBack() }]
       );
     } catch (err) {
-      Alert.alert("Error", err.message || "Failed to submit report.");
+      Alert.alert("Submission Error", err.message || "Failed to submit report.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={styles.container}
-      contentContainerStyle={{ padding: 20, paddingTop: 55, paddingBottom: 60 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="close" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Report an Issue</Text>
-        <View style={{ width: 24 }} />
-      </View>
-
-      <Text style={styles.communityTag}>
-        Reporting in: <Text style={{ fontWeight: "700" }}>{community?.name || "Your Area"}</Text>
-      </Text>
-
-      <Text style={styles.question}>What problem are you facing?</Text>
-
-      <View style={styles.grid}>
-        {ISSUE_CATEGORIES.map((c) => {
-          const active = category === c.key;
-          return (
-            <TouchableOpacity
-              key={c.key}
-              style={[styles.categoryTile, active && styles.categoryTileActive]}
-              onPress={() => setCategory(c.key)}
-            >
-              <Ionicons
-                name={c.icon}
-                size={22}
-                color={active ? "#fff" : colors.primary}
-              />
-              <Text
-                style={[
-                  styles.categoryLabel,
-                  active && styles.categoryLabelActive,
-                ]}
-              >
-                {c.key}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <Text style={styles.label}>Description</Text>
-      <TextInput
-        style={styles.textArea}
-        placeholder="Describe the issue with specific location details (e.g. Near Pole 12)..."
-        placeholderTextColor={colors.textMuted}
-        multiline
-        value={description}
-        onChangeText={setDescription}
-      />
-
-      <TouchableOpacity
-        style={styles.submitBtn}
-        onPress={handleSubmit}
-        disabled={submitting}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.submitBtnText}>
-          {submitting ? "Submitting..." : "Submit Report"}
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <View style={styles.contentWrap}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <Ionicons name="arrow-back" size={26} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Report an Issue</Text>
+            <View style={{ width: 26 }} />
+          </View>
+
+          {/* Location Badge */}
+          <View style={styles.locationBanner}>
+            <Ionicons name="location-sharp" size={18} color={colors.primary} />
+            <Text style={styles.locationBannerText}>
+              Location: <Text style={{ fontWeight: "800" }}>{community?.name || "Community"}</Text>
+            </Text>
+          </View>
+
+          {/* Question / Step 1 */}
+          <Text style={styles.stepTitle}>1. What kind of problem is it?</Text>
+          <Text style={styles.stepSubtitle}>Tap a category that best matches your issue:</Text>
+
+          <View style={styles.grid}>
+            {ISSUE_CATEGORIES.map((c) => {
+              const active = category === c.key;
+              return (
+                <TouchableOpacity
+                  key={c.key}
+                  style={[styles.categoryTile, active && styles.categoryTileActive]}
+                  onPress={() => setCategory(c.key)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={c.key}
+                >
+                  <View
+                    style={[
+                      styles.iconCircle,
+                      active ? styles.iconCircleActive : styles.iconCircleInactive,
+                    ]}
+                  >
+                    <Ionicons
+                      name={c.icon}
+                      size={24}
+                      color={active ? "#fff" : colors.primary}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.categoryLabel,
+                      active && styles.categoryLabelActive,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {c.key}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Description / Step 2 */}
+          <Text style={styles.stepTitle}>2. Describe the problem</Text>
+          <Text style={styles.stepSubtitle}>
+            Add details like tower, flat number, street or landmark:
+          </Text>
+
+          <TextInput
+            style={styles.textArea}
+            placeholder="e.g. Water leakage near 2nd floor elevator lobby since this morning..."
+            placeholderTextColor={colors.textMuted}
+            multiline
+            numberOfLines={4}
+            value={description}
+            onChangeText={setDescription}
+          />
+
+          {/* Submit Button */}
+          <TouchableOpacity
+            style={styles.submitBtn}
+            onPress={handleSubmit}
+            disabled={submitting}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Submit Issue Report"
+          >
+            <Ionicons name="send" size={20} color="#fff" />
+            <Text style={styles.submitBtnText}>
+              {submitting ? "Submitting Report..." : "Submit Report"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
-  title: { fontSize: 17, fontWeight: "700", color: colors.text },
-  communityTag: { fontSize: 13, color: colors.textMuted, marginBottom: 14 },
-  question: { fontSize: 15, fontWeight: "700", color: colors.text, marginBottom: 14 },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 20 },
-  categoryTile: {
-    width: "30%",
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingTop: 54,
+    paddingBottom: 40,
+  },
+  contentWrap: {
+    width: "100%",
+    maxWidth: 540,
+    alignSelf: "center",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: colors.text,
+    letterSpacing: -0.3,
+  },
+  locationBanner: {
+    flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingVertical: 14,
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    marginBottom: 20,
   },
-  categoryTileActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  categoryLabel: { fontSize: 11.5, color: colors.text, textAlign: "center", fontWeight: "600" },
-  categoryLabelActive: { color: "#fff" },
-  label: { fontSize: 13, fontWeight: "600", color: colors.text, marginBottom: 8 },
+  locationBannerText: {
+    fontSize: 14.5,
+    color: colors.primaryDark,
+  },
+  stepTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: colors.text,
+    letterSpacing: -0.2,
+    marginBottom: 4,
+  },
+  stepSubtitle: {
+    fontSize: 13.5,
+    color: colors.textMuted,
+    marginBottom: 14,
+  },
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginBottom: 24,
+    gap: 10,
+  },
+  categoryTile: {
+    width: "30.5%",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.borderLight,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  categoryTileActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryDark,
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  iconCircleInactive: {
+    backgroundColor: colors.primaryLight,
+  },
+  iconCircleActive: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+  categoryLabel: {
+    fontSize: 13,
+    color: colors.text,
+    textAlign: "center",
+    fontWeight: "700",
+  },
+  categoryLabelActive: {
+    color: "#fff",
+  },
   textArea: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
-    borderRadius: 14,
-    padding: 14,
-    minHeight: 110,
-    fontSize: 15,
+    borderRadius: 16,
+    padding: 16,
+    minHeight: 120,
+    fontSize: 16,
     color: colors.text,
     textAlignVertical: "top",
+    marginBottom: 24,
+    lineHeight: 22,
   },
   submitBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 15,
+    flexDirection: "row",
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: 26,
+    gap: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    height: 54,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  submitBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  submitBtnText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 16.5,
+  },
 });

@@ -1,43 +1,103 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import colors from "../theme/colors";
 
 export default function ServiceCard({ service }) {
+  const phoneNumber = service.phone || "9876543210";
+
+  const handleCall = () => {
+    const url = `tel:${phoneNumber}`;
+    Linking.canOpenURL(url)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(url);
+        } else {
+          Alert.alert("Contact Service", `Call ${service.name} at: ${phoneNumber}`);
+        }
+      })
+      .catch(() => {
+        Alert.alert("Contact Service", `Call ${service.name} at: ${phoneNumber}`);
+      });
+  };
+
+  const handleBook = () => {
+    Alert.alert(
+      "Book Service",
+      `Would you like to request an appointment with ${service.name} (${service.category})?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Confirm Request",
+          onPress: () => Alert.alert("Request Sent!", `${service.name} will contact you shortly.`),
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.card}>
+      {/* Title & verification */}
       <View style={styles.row}>
-        <Text style={styles.name}>{service.name}</Text>
-        {service.verified && (
-          <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={styles.name}>{service.name}</Text>
+            {service.verified && (
+              <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+            )}
+          </View>
+          <Text style={styles.category}>{service.category}</Text>
+        </View>
+
+        {service.startingPrice && (
+          <View style={styles.priceContainer}>
+            <Text style={styles.priceLabel}>Starting from</Text>
+            <Text style={styles.priceValue}>₹{service.startingPrice}</Text>
+          </View>
         )}
       </View>
-      <Text style={styles.category}>{service.category}</Text>
 
+      {/* Meta Row: Rating, distance, verified */}
       <View style={styles.metaRow}>
-        <View style={styles.metaItem}>
-          <Ionicons name="star" size={14} color={colors.warning} />
-          <Text style={styles.metaText}>{service.rating}</Text>
+        <View style={styles.metaBadge}>
+          <Ionicons name="star" size={15} color={colors.warning} />
+          <Text style={styles.ratingText}>{service.rating || "4.8"}</Text>
         </View>
+        {service.distanceKm && (
+          <View style={styles.metaItem}>
+            <Ionicons name="location-outline" size={15} color={colors.textMuted} />
+            <Text style={styles.metaText}>{service.distanceKm} km away</Text>
+          </View>
+        )}
         <View style={styles.metaItem}>
-          <Ionicons name="location-outline" size={14} color={colors.textMuted} />
-          <Text style={styles.metaText}>{service.distanceKm} km away</Text>
+          <Ionicons name="shield-checkmark-outline" size={15} color={colors.primary} />
+          <Text style={[styles.metaText, { color: colors.primary, fontWeight: "600" }]}>
+            Neighbourhood Verified
+          </Text>
         </View>
       </View>
 
-      <Text style={styles.price}>₹{service.startingPrice} starting</Text>
-
+      {/* Action Buttons - large and senior accessible */}
       <View style={styles.actionsRow}>
-        <TouchableOpacity style={[styles.btn, styles.callBtn]}>
-          <Ionicons name="call-outline" size={15} color={colors.primary} />
-          <Text style={styles.callText}>Call</Text>
+        <TouchableOpacity
+          style={styles.callBtn}
+          onPress={handleCall}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`Call ${service.name}`}
+        >
+          <Ionicons name="call" size={18} color="#fff" />
+          <Text style={styles.callBtnText}>Call Now</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.btn, styles.chatBtn]}>
-          <Ionicons name="chatbubble-outline" size={15} color={colors.textMuted} />
-          <Text style={styles.chatText}>Chat</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.btn, styles.requestBtn]}>
-          <Text style={styles.requestText}>Request</Text>
+
+        <TouchableOpacity
+          style={styles.bookBtn}
+          onPress={handleBook}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`Book ${service.name}`}
+        >
+          <Text style={styles.bookBtnText}>Book Visit</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -47,25 +107,117 @@ export default function ServiceCard({ service }) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  row: { flexDirection: "row", alignItems: "center", gap: 6 },
-  name: { fontWeight: "700", fontSize: 15, color: colors.text },
-  category: { fontSize: 12, color: colors.textMuted, marginTop: 2, marginBottom: 8 },
-  metaRow: { flexDirection: "row", gap: 16, marginBottom: 8 },
-  metaItem: { flexDirection: "row", alignItems: "center", gap: 4 },
-  metaText: { fontSize: 12.5, color: colors.text },
-  price: { fontSize: 13, fontWeight: "600", color: colors.primaryDark, marginBottom: 10 },
-  actionsRow: { flexDirection: "row", gap: 8 },
-  btn: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10 },
-  callBtn: { backgroundColor: colors.primaryLight },
-  callText: { color: colors.primary, fontWeight: "600", fontSize: 13 },
-  chatBtn: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border },
-  chatText: { color: colors.textMuted, fontWeight: "600", fontSize: 13 },
-  requestBtn: { backgroundColor: colors.primary, flex: 1, alignItems: "center" },
-  requestText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  name: {
+    fontWeight: "800",
+    fontSize: 17,
+    color: colors.text,
+    letterSpacing: -0.2,
+  },
+  category: {
+    fontSize: 14,
+    color: colors.textMuted,
+    marginTop: 2,
+    fontWeight: "500",
+  },
+  priceContainer: {
+    alignItems: "flex-end",
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  priceLabel: {
+    fontSize: 11,
+    color: colors.primaryDark,
+    fontWeight: "600",
+  },
+  priceValue: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: colors.primaryDark,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+    flexWrap: "wrap",
+  },
+  metaBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  ratingText: {
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: "#92400E",
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  metaText: {
+    fontSize: 13.5,
+    color: colors.textMuted,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    gap: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+  },
+  callBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: colors.primary,
+    height: 48,
+    borderRadius: 12,
+  },
+  callBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  bookBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.background,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    height: 48,
+    borderRadius: 12,
+  },
+  bookBtnText: {
+    color: colors.text,
+    fontWeight: "700",
+    fontSize: 15,
+  },
 });

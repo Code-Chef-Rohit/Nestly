@@ -5,134 +5,273 @@ import colors from "../theme/colors";
 import { useAuth } from "../context/AuthContext";
 import { isSupabaseConfigured } from "../config/supabase";
 
-const MENU_ITEMS = [
-  { icon: "person-outline", label: "Edit Profile" },
-  { icon: "home-outline", label: "My Community" },
-  { icon: "notifications-outline", label: "Notification Settings" },
-  { icon: "shield-checkmark-outline", label: "Privacy & Safety" },
-  { icon: "help-circle-outline", label: "Help & Support" },
-];
-
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const { user, community, signOut } = useAuth();
 
   function handleSignOut() {
-    Alert.alert("Log out", "Are you sure you want to log out?", [
+    Alert.alert("Log Out", "Are you sure you want to log out of Nestly?", [
       { text: "Cancel", style: "cancel" },
-      { text: "Log out", style: "destructive", onPress: signOut },
+      { text: "Log Out", style: "destructive", onPress: signOut },
     ]);
   }
 
+  const menuItems = [
+    {
+      icon: "business-outline",
+      label: "Switch / Change Community",
+      sub: "Move to a different apartment or locality",
+      onPress: () => navigation.navigate("LocationSelection"),
+    },
+    {
+      icon: "call-outline",
+      label: "Emergency & Helplines",
+      sub: "Ambulance, Police, Senior Citizen Desk",
+      onPress: () => navigation.navigate("Home"),
+    },
+    {
+      icon: "notifications-outline",
+      label: "Notifications & Alerts",
+      sub: "Maintenance and urgent community notices",
+      onPress: () => Alert.alert("Notifications", "You will receive real-time updates for your neighbourhood."),
+    },
+    {
+      icon: "shield-checkmark-outline",
+      label: "Privacy & Resident Safety",
+      sub: "Only verified neighbours see your area updates",
+      onPress: () => Alert.alert("Safety Verified", "Nestly keeps your phone number and private details secure."),
+    },
+    {
+      icon: "help-circle-outline",
+      label: "Help & Senior Support",
+      sub: "Contact community support and get assistance",
+      onPress: () => Alert.alert("Support Desk", "Need help? Call our resident helpdesk or message your society admin."),
+    },
+  ];
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 20, paddingTop: 60, paddingBottom: 60 }}>
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{(user?.name ?? "U")[0]}</Text>
-        </View>
-        <Text style={styles.name}>{user?.name ?? "Neighbour"}</Text>
-        <Text style={styles.email}>{user?.email}</Text>
-        <View style={styles.communityBadge}>
-          <Ionicons name="location-sharp" size={12} color={colors.primary} />
-          <Text style={styles.communityText}>{community?.name ?? "No community joined"}</Text>
-        </View>
-      </View>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.contentWrap}>
+        {/* Profile Card Header */}
+        <View style={styles.header}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {(user?.name || "U")[0].toUpperCase()}
+            </Text>
+          </View>
+          <Text style={styles.name}>{user?.name || "Neighbour"}</Text>
+          <Text style={styles.email}>{user?.email || "Resident Account"}</Text>
 
-      <View style={styles.menu}>
-        {MENU_ITEMS.map((item) => (
-          <TouchableOpacity key={item.label} style={styles.menuItem}>
-            <Ionicons name={item.icon} size={19} color={colors.text} />
-            <Text style={styles.menuLabel}>{item.label}</Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+          <TouchableOpacity
+            style={styles.communityBadge}
+            onPress={() => navigation.navigate("LocationSelection")}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="location-sharp" size={15} color={colors.primary} />
+            <Text style={styles.communityText}>
+              {community?.name || "No community joined"}
+            </Text>
+            <Ionicons name="pencil" size={12} color={colors.primary} />
           </TouchableOpacity>
-        ))}
-      </View>
+        </View>
 
-      <View style={styles.statusCard}>
-        <Ionicons
-          name={isSupabaseConfigured ? "cloud-done-outline" : "cloud-offline-outline"}
-          size={16}
-          color={isSupabaseConfigured ? colors.success : colors.textMuted}
-        />
-        <Text style={styles.statusText}>
-          {isSupabaseConfigured
-            ? "Connected to Supabase backend"
-            : "Running on local demo data — connect Supabase in .env"}
-        </Text>
-      </View>
+        {/* Menu Items */}
+        <View style={styles.menu}>
+          {menuItems.map((item, idx) => (
+            <TouchableOpacity
+              key={item.label}
+              style={[
+                styles.menuItem,
+                idx === menuItems.length - 1 && { borderBottomWidth: 0 },
+              ]}
+              onPress={item.onPress}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuIconCircle}>
+                <Ionicons name={item.icon} size={22} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.menuLabel}>{item.label}</Text>
+                {item.sub ? <Text style={styles.menuSub}>{item.sub}</Text> : null}
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
-        <Ionicons name="log-out-outline" size={18} color={colors.danger} />
-        <Text style={styles.signOutText}>Log Out</Text>
-      </TouchableOpacity>
+        {/* Backend & Security Status */}
+        <View style={styles.statusCard}>
+          <Ionicons
+            name={isSupabaseConfigured ? "cloud-done" : "cloud-offline"}
+            size={20}
+            color={isSupabaseConfigured ? colors.success : colors.warning}
+          />
+          <Text style={styles.statusText}>
+            {isSupabaseConfigured
+              ? "Live Supabase Cloud Connected"
+              : "Running in offline mode"}
+          </Text>
+        </View>
+
+        {/* Sign Out Button */}
+        <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
+          <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+          <Text style={styles.signOutText}>Log Out from Nestly</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { alignItems: "center", marginBottom: 26 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingTop: 54,
+    paddingBottom: 40,
+  },
+  contentWrap: {
+    width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
+  },
+  header: {
+    alignItems: "center",
+    marginBottom: 24,
+    backgroundColor: colors.surface,
+    padding: 24,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
   avatar: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
+    marginBottom: 12,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  avatarText: { color: "#fff", fontWeight: "700", fontSize: 28 },
-  name: { fontSize: 19, fontWeight: "800", color: colors.text },
-  email: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  avatarText: {
+    color: "#fff",
+    fontWeight: "900",
+    fontSize: 32,
+  },
+  name: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  email: {
+    fontSize: 14.5,
+    color: colors.textMuted,
+    marginTop: 4,
+  },
   communityBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 6,
     backgroundColor: colors.primaryLight,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
-    marginTop: 10,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: "rgba(13,122,95,0.2)",
   },
-  communityText: { fontSize: 12.5, color: colors.primaryDark, fontWeight: "600" },
+  communityText: {
+    fontSize: 13.5,
+    color: colors.primaryDark,
+    fontWeight: "700",
+  },
   menu: {
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     overflow: "hidden",
     marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    gap: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderLight,
   },
-  menuLabel: { flex: 1, fontSize: 14.5, color: colors.text },
+  menuIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuLabel: {
+    fontSize: 15.5,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  menuSub: {
+    fontSize: 12.5,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
   statusCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: 12,
+    borderColor: colors.borderLight,
+    padding: 14,
     marginBottom: 20,
   },
-  statusText: { fontSize: 12, color: colors.textMuted, flex: 1 },
+  statusText: {
+    fontSize: 13.5,
+    color: colors.text,
+    fontWeight: "600",
+    flex: 1,
+  },
   signOutBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.danger,
-    borderRadius: 12,
-    paddingVertical: 13,
+    borderRadius: 16,
+    height: 52,
+    backgroundColor: colors.dangerLight,
   },
-  signOutText: { color: colors.danger, fontWeight: "700", fontSize: 14.5 },
+  signOutText: {
+    color: colors.danger,
+    fontWeight: "800",
+    fontSize: 16,
+  },
 });

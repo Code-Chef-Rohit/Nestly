@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   Alert,
-  FlatList,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -25,11 +24,11 @@ export default function CreatePostScreen({ navigation }) {
 
   async function handleSubmit() {
     if (!content.trim()) {
-      Alert.alert("Details Missing", "Please write something before posting.");
+      Alert.alert("Content Required", "Please write a message before posting.");
       return;
     }
     if (!community?.id) {
-      Alert.alert("No Community", "Please join a community first to share posts.");
+      Alert.alert("No Community Selected", "Please select a community to post in.");
       return;
     }
 
@@ -44,11 +43,11 @@ export default function CreatePostScreen({ navigation }) {
         });
         if (error) throw error;
       }
-      Alert.alert("Posted! 🎉", "Your post is now live in the community feed.", [
-        { text: "OK", onPress: () => navigation.goBack() },
+      Alert.alert("Post Published! 🎉", "Your post is now visible to all neighbours.", [
+        { text: "View Feed", onPress: () => navigation.goBack() },
       ]);
     } catch (e) {
-      Alert.alert("Error", e.message || "Failed to publish post.");
+      Alert.alert("Posting Error", e.message || "Failed to publish post.");
     } finally {
       setPosting(false);
     }
@@ -59,86 +58,193 @@ export default function CreatePostScreen({ navigation }) {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="close" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Create Post</Text>
-        <TouchableOpacity onPress={handleSubmit} disabled={posting}>
-          <Text style={[styles.submit, posting && { opacity: 0.5 }]}>
-            {posting ? "Posting..." : "Post"}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.contentWrap}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel post"
+            >
+              <Ionicons name="close" size={26} color={colors.text} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Create New Post</Text>
+            <View style={{ width: 26 }} />
+          </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <Text style={styles.communityTag}>
-          Posting in: <Text style={{ fontWeight: "700" }}>{community?.name || "Your Area"}</Text>
-        </Text>
+          {/* Location Badge */}
+          <View style={styles.locationBanner}>
+            <Ionicons name="location-sharp" size={18} color={colors.primary} />
+            <Text style={styles.locationBannerText}>
+              Sharing in: <Text style={{ fontWeight: "800" }}>{community?.name || "My Community"}</Text>
+            </Text>
+          </View>
 
-        <Text style={styles.label}>Select Category</Text>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={FEED_CATEGORIES}
-          keyExtractor={(c) => c}
-          contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
-          renderItem={({ item }) => {
-            const active = category === item;
-            return (
-              <TouchableOpacity
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => setCategory(item)}
-              >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            );
-          }}
-        />
+          {/* Category Picker */}
+          <Text style={styles.label}>1. Select Category</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipRow}
+          >
+            {FEED_CATEGORIES.map((item) => {
+              const active = category === item;
+              return (
+                <TouchableOpacity
+                  key={item}
+                  style={[styles.chip, active && styles.chipActive]}
+                  onPress={() => setCategory(item)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
-        <Text style={styles.label}>What's on your mind?</Text>
-        <TextInput
-          style={styles.textArea}
-          placeholder="Share something with your neighbourhood..."
-          placeholderTextColor={colors.textMuted}
-          multiline
-          value={content}
-          onChangeText={setContent}
-        />
+          {/* Text Area */}
+          <Text style={[styles.label, { marginTop: 18 }]}>2. What would you like to share?</Text>
+          <TextInput
+            style={styles.textArea}
+            placeholder="Write your notice, request, question, or announcement here..."
+            placeholderTextColor={colors.textMuted}
+            multiline
+            numberOfLines={6}
+            value={content}
+            onChangeText={setContent}
+          />
+
+          {/* Submit Button */}
+          <TouchableOpacity
+            style={styles.submitBtn}
+            onPress={handleSubmit}
+            disabled={posting}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Publish post"
+          >
+            <Ionicons name="send" size={20} color="#fff" />
+            <Text style={styles.submitBtnText}>
+              {posting ? "Publishing..." : "Publish to Community"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 55 },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
-  title: { fontSize: 17, fontWeight: "700", color: colors.text },
-  submit: { color: colors.primary, fontWeight: "700", fontSize: 16 },
-  communityTag: { fontSize: 13, color: colors.textMuted, marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: "600", color: colors.text, marginTop: 14, marginBottom: 8 },
-  chip: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 20,
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingTop: 54,
+    paddingBottom: 40,
+  },
+  contentWrap: {
+    width: "100%",
+    maxWidth: 540,
+    alignSelf: "center",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: colors.text,
+    letterSpacing: -0.3,
+  },
+  locationBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: colors.primaryLight,
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  locationBannerText: {
+    fontSize: 14.5,
+    color: colors.primaryDark,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.text,
+    marginBottom: 10,
+    letterSpacing: -0.2,
+  },
+  chipRow: {
+    gap: 10,
+    paddingVertical: 4,
+    marginBottom: 6,
+  },
+  chip: {
+    borderWidth: 1.5,
+    borderColor: colors.borderLight,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     backgroundColor: colors.surface,
   },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontSize: 12.5, color: colors.textMuted, fontWeight: "600" },
-  chipTextActive: { color: "#fff" },
+  chipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryDark,
+  },
+  chipText: {
+    fontSize: 14,
+    color: colors.textMuted,
+    fontWeight: "700",
+  },
+  chipTextActive: {
+    color: "#fff",
+  },
   textArea: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 16,
+    padding: 16,
     minHeight: 140,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.text,
     textAlignVertical: "top",
+    lineHeight: 23,
+    marginBottom: 24,
+  },
+  submitBtn: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    height: 54,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  submitBtnText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 16.5,
   },
 });

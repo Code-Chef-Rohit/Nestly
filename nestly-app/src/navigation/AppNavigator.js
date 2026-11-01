@@ -7,7 +7,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 import colors from "../theme/colors";
 
-import SplashScreen from "../screens/SplashScreen";
 import AuthScreen from "../screens/AuthScreen";
 import LocationSelectionScreen from "../screens/LocationSelectionScreen";
 import JoinCommunityScreen from "../screens/JoinCommunityScreen";
@@ -23,7 +22,7 @@ const Tab = createBottomTabNavigator();
 
 const TAB_ICONS = {
   Home: "home",
-  Feed: "newspaper",
+  Feed: "chatbubbles",
   Services: "construct",
   Profile: "person",
 };
@@ -35,11 +34,28 @@ function MainTabs() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: { borderTopColor: colors.border, height: 60, paddingBottom: 8, paddingTop: 6 },
-        tabBarIcon: ({ color, size, focused }) => (
+        tabBarLabelStyle: {
+          fontSize: 12.5,
+          fontWeight: "700",
+          marginTop: -2,
+        },
+        tabBarStyle: {
+          borderTopColor: colors.borderLight,
+          borderTopWidth: 1.5,
+          height: 64,
+          paddingBottom: 8,
+          paddingTop: 8,
+          backgroundColor: colors.surface,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 6,
+          elevation: 8,
+        },
+        tabBarIcon: ({ color, focused }) => (
           <Ionicons
             name={focused ? TAB_ICONS[route.name] : `${TAB_ICONS[route.name]}-outline`}
-            size={22}
+            size={24}
             color={color}
           />
         ),
@@ -59,6 +75,8 @@ function MainStack() {
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="CreatePost" component={CreatePostScreen} presentation="modal" />
       <Stack.Screen name="ReportIssue" component={ReportIssueScreen} presentation="modal" />
+      <Stack.Screen name="LocationSelection" component={LocationSelectionScreen} />
+      <Stack.Screen name="JoinCommunity" component={JoinCommunityScreen} />
     </Stack.Navigator>
   );
 }
@@ -82,23 +100,12 @@ const linking = {
 };
 
 export default function AppNavigator() {
-  const { isAuthenticated, hasCommunity, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <NavigationContainer linking={linking}>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Splash" component={SplashScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    );
-  }
+  const { isAuthenticated, hasCommunity } = useAuth();
 
   return (
     <NavigationContainer linking={linking}>
       {!isAuthenticated ? (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Splash" component={SplashScreen} />
           <Stack.Screen name="Auth" component={AuthScreen} />
         </Stack.Navigator>
       ) : !hasCommunity ? (

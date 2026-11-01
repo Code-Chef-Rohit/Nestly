@@ -5,22 +5,13 @@ import { makeRedirectUri } from "expo-auth-session";
 import { supabase, isSupabaseConfigured } from "../config/supabase";
 
 WebBrowser.maybeCompleteAuthSession();
-// Mock data removed – using real Supabase auth when configured
 
-// Fallback mock data for development when Supabase is not configured
 const FALLBACK_USER = {
   id: "u_dev",
   name: "Demo User",
   email: "demo@example.com",
   phone: null,
   profile_photo: null,
-};
-const FALLBACK_COMMUNITY = {
-  id: "c_dev",
-  name: "Demo Community",
-  address: "Demo Address",
-  latitude: 0,
-  longitude: 0,
 };
 
 const AuthContext = createContext(null);
@@ -33,44 +24,89 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    restoreSession();
+    // Add a strict timeout safety guard: never leave app stuck in loading state
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+    }, 2500);
+
+    restoreSession().finally(() => {
+      clearTimeout(safetyTimer);
+      setLoading(false);
+    });
+
+    return () => clearTimeout(safetyTimer);
   }, []);
 
   async function restoreSession() {
     try {
+      // 1. Read persistent cache
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      let localCommunity = null;
+      let localUser = null;
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          localCommunity = parsed.community || null;
+          localUser = parsed.user || null;
+          if (localCommunity) setCommunity(localCommunity);
+          if (localUser) setUser(localUser);
+        } catch (err) {
+          console.warn("Session parse error:", err);
+        }
+      }
+
+      // 2. Refresh Supabase session
       if (isSupabaseConfigured) {
         const { data } = await supabase.auth.getSession();
         if (data?.session?.user) {
-          setUser(data.session.user);
-        }
-      } else {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          setUser(parsed.user);
-          setCommunity(parsed.community);
+          const authUser = data.session.user;
+          const resolvedUser = {
+            ...authUser,
+            name: authUser.user_metadata?.name || authUser.email?.split("@")[0] || "Resident",
+          };
+          setUser(resolvedUser);
+
+          // If no local community, query membership with safety timeout
+          if (!localCommunity) {
+            try {
+              const { data: memberRows } = await supabase
+                .from("community_members")
+                .select("community_id, communities(*)")
+                .eq("user_id", authUser.id)
+                .limit(1);
+
+              if (memberRows && memberRows.length > 0 && memberRows[0].communities) {
+                const userCommunity = memberRows[0].communities;
+                setCommunity(userCommunity);
+                await persistSession(resolvedUser, userCommunity);
+              }
+            } catch (err) {
+              console.warn("Membership check notice:", err);
+            }
+          }
         }
       }
     } catch (e) {
       console.warn("Failed to restore session", e);
-    } finally {
-      setLoading(false);
     }
   }
 
-  async function persistMock(nextUser, nextCommunity) {
-    await AsyncStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ user: nextUser, community: nextCommunity })
-    );
+  async function persistSession(nextUser, nextCommunity) {
+    try {
+      await AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ user: nextUser, community: nextCommunity })
+      );
+    } catch (e) {
+      console.warn("Error persisting session:", e);
+    }
   }
 
-  // Sign-in & Sign-up: Supabase Auth with automatic local profile sync
+  // Sign-in & Sign-up
   async function signIn({ email, password, name, isSignUp = false }) {
     if (isSupabaseConfigured) {
       try {
         if (isSignUp) {
-          // 1. Sign up user in Supabase Auth
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -78,63 +114,79 @@ export function AuthProvider({ children }) {
           });
           if (error) throw error;
           if (data?.user) {
-            // Upsert user into public.users table as well
             await supabase.from("users").upsert({
               id: data.user.id,
               name: name || "Resident",
               email: email,
             });
-            setUser(data.user);
-            return data.user;
+            const newUser = { ...data.user, name: name || "Resident" };
+            setUser(newUser);
+            await persistSession(newUser, community);
+            return newUser;
           }
         } else {
-          // 2. Sign in with password
           const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
           });
           if (error) throw error;
           if (data?.user) {
-            setUser(data.user);
-            return data.user;
+            const loggedInUser = {
+              ...data.user,
+              name: data.user.user_metadata?.name || email.split("@")[0],
+            };
+            setUser(loggedInUser);
+
+            let existingCommunity = community;
+            try {
+              const { data: members } = await supabase
+                .from("community_members")
+                .select("communities(*)")
+                .eq("user_id", data.user.id)
+                .limit(1);
+
+              if (members && members.length > 0 && members[0].communities) {
+                existingCommunity = members[0].communities;
+                setCommunity(existingCommunity);
+              }
+            } catch (e) {}
+
+            await persistSession(loggedInUser, existingCommunity);
+            return loggedInUser;
           }
         }
       } catch (err) {
         console.warn("Supabase auth notice:", err.message);
-        // If Supabase requires email verification or throws during testing,
-        // create a smooth local session so developer/tester never gets blocked
         const nextUser = {
           id: `u_${Date.now()}`,
           name: name || "Resident",
           email: email || FALLBACK_USER.email,
         };
         setUser(nextUser);
-        await persistMock(nextUser, community);
+        await persistSession(nextUser, community);
         return nextUser;
       }
     }
 
-    // Fallback mode when offline / demo
     const nextUser = {
       ...FALLBACK_USER,
       name: name || FALLBACK_USER.name,
       email: email || FALLBACK_USER.email,
     };
     setUser(nextUser);
-    await persistMock(nextUser, community);
+    await persistSession(nextUser, community);
     return nextUser;
   }
 
-  // Google OAuth sign-in via Supabase
   async function signInWithGoogle() {
     if (!isSupabaseConfigured) {
       const demoUser = {
         id: `u_google_${Date.now()}`,
-        name: "Google User",
+        name: "Google Resident",
         email: "googleuser@gmail.com",
       };
       setUser(demoUser);
-      await persistMock(demoUser, community);
+      await persistSession(demoUser, community);
       return demoUser;
     }
 
@@ -151,7 +203,6 @@ export function AuthProvider({ children }) {
     if (data?.url) {
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
       if (result.type === "success" && result.url) {
-        // Parse token hash parameters
         const hash = result.url.split("#")[1];
         if (hash) {
           const params = new URLSearchParams(hash);
@@ -163,8 +214,32 @@ export function AuthProvider({ children }) {
               refresh_token,
             });
             if (!sErr && sessionData?.user) {
-              setUser(sessionData.user);
-              return sessionData.user;
+              const u = sessionData.user;
+              const gName = u.user_metadata?.full_name || u.user_metadata?.name || u.email?.split("@")[0];
+              await supabase.from("users").upsert({
+                id: u.id,
+                name: gName,
+                email: u.email,
+              });
+              const googleUser = { ...u, name: gName };
+              setUser(googleUser);
+
+              let userComm = community;
+              try {
+                const { data: members } = await supabase
+                  .from("community_members")
+                  .select("communities(*)")
+                  .eq("user_id", u.id)
+                  .limit(1);
+
+                if (members && members.length > 0 && members[0].communities) {
+                  userComm = members[0].communities;
+                  setCommunity(userComm);
+                }
+              } catch (e) {}
+
+              await persistSession(googleUser, userComm);
+              return googleUser;
             }
           }
         }
@@ -173,15 +248,16 @@ export function AuthProvider({ children }) {
   }
 
   async function joinCommunity(nextCommunity) {
-    const final = nextCommunity || FALLBACK_COMMUNITY;
-    setCommunity(final);
-    await persistMock(user, final);
-    return final;
+    setCommunity(nextCommunity);
+    await persistSession(user, nextCommunity);
+    return nextCommunity;
   }
 
   async function signOut() {
     if (isSupabaseConfigured) {
-      await supabase.auth.signOut();
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {}
     }
     setUser(null);
     setCommunity(null);
