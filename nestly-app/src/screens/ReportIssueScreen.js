@@ -15,9 +15,11 @@ import colors, { shadows, radii } from "../theme/colors";
 import { ISSUE_CATEGORIES } from "../constants/categories";
 import { supabase, isSupabaseConfigured } from "../config/supabase";
 import { useAuth } from "../context/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function ReportIssueScreen({ navigation }) {
   const { community, user } = useAuth();
+  const queryClient = useQueryClient();
   const [category, setCategory] = useState(null);
   const [priority, setPriority] = useState("Normal");
   const [description, setDescription] = useState("");
@@ -56,11 +58,14 @@ export default function ReportIssueScreen({ navigation }) {
 
         if (error) throw error;
         if (data?.id) issueId = data.id;
+
+        await queryClient.invalidateQueries({ queryKey: ["user_issues"] });
+        await queryClient.invalidateQueries({ queryKey: ["dashboard_stats"] });
       }
 
       Alert.alert(
-        "Issue Submitted! 📋",
-        `Your report #${issueId} for ${community.name} has been recorded. Maintenance & community leads have been notified.`,
+        "Report Submitted",
+        `Your issue ticket #${issueId} for ${community.name} has been recorded. Maintenance and community leads have been notified.`,
         [{ text: "Done", onPress: () => navigation.goBack() }]
       );
     } catch (err) {

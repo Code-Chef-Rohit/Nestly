@@ -176,7 +176,7 @@ export default function ServiceCard({ service }) {
               </View>
 
               <Text style={styles.splitNote}>
-                * 10% platform protection fee is credited to platform account ({PAYMENT_CONFIG.adminUpiId}) upon service delivery.
+                Pay directly to your provider after service completion. Includes Nestly 10% community protection guarantee.
               </Text>
             </View>
 

@@ -99,7 +99,20 @@ export default function LocationSelectionScreen({ navigation }) {
         return;
       }
       const pos = await Location.getCurrentPositionAsync({});
+      let detectedArea = "";
+      try {
+        const places = await Location.reverseGeocodeAsync({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
+        if (places && places.length > 0) {
+          const place = places[0];
+          detectedArea = place.district || place.city || place.subregion || place.name || "";
+        }
+      } catch (err) {}
+
       navigation.navigate("JoinCommunity", {
+        query: detectedArea,
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
       });

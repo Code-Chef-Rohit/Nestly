@@ -31,14 +31,28 @@ export default function CommunityFeedScreen({ navigation }) {
     queryKey: ["community_posts", community?.id],
     queryFn: async () => {
       if (!isSupabaseConfigured || !community?.id) return [];
-      const { data, error } = await supabase
-        .from("posts")
-        .select("*, users(name)")
-        .eq("community_id", community.id)
-        .order("created_at", { ascending: false });
+      let rawPosts = [];
+      try {
+        const { data, error } = await supabase
+          .from("posts")
+          .select("*, users(name)")
+          .eq("community_id", community.id)
+          .order("created_at", { ascending: false });
+        if (!error && data) {
+          rawPosts = data;
+        } else {
+          throw error || new Error("Relation query failed");
+        }
+      } catch (relErr) {
+        const { data: standaloneData } = await supabase
+          .from("posts")
+          .select("*")
+          .eq("community_id", community.id)
+          .order("created_at", { ascending: false });
+        rawPosts = standaloneData || [];
+      }
 
-      if (error) throw error;
-      return (data || []).map((p) => ({
+      return rawPosts.map((p) => ({
         id: p.id,
         author: p.users?.name || "Neighbour",
         category: p.category || "General",

@@ -12,21 +12,48 @@
       "resizeMode": "contain",
       "backgroundColor": "#0D7A5F"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.nestly.app"
     },
     "android": {
       "package": "com.nestly.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0D7A5F"
-      }
+      },
+      "permissions": [
+        "INTERNET",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/icon.png",
       "bundler": "metro"
-    }
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Nestly to access your photos to attach pictures of civic reports.",
+          "cameraPermission": "Allow Nestly to access your camera to take pictures of civic issues."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Nestly to access your location to discover your local residential community."
+        }
+      ]
+    ]
   }
 }

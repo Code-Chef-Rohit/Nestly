@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useAuth } from "../context/AuthContext";
@@ -30,6 +31,9 @@ const TAB_ICONS = {
 };
 
 function MainTabs() {
+  const insets = useSafeAreaInsets();
+  const bottomPadding = insets.bottom > 0 ? insets.bottom : 8;
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -44,9 +48,9 @@ function MainTabs() {
         tabBarStyle: {
           borderTopColor: colors.borderLight,
           borderTopWidth: 1.5,
-          height: 64,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: 54 + bottomPadding,
+          paddingBottom: bottomPadding,
+          paddingTop: 6,
           backgroundColor: colors.surface,
           shadowColor: "#000",
           shadowOffset: { width: 0, height: -2 },

@@ -15,9 +15,11 @@ import colors, { shadows, radii } from "../theme/colors";
 import { FEED_CATEGORIES } from "../constants/categories";
 import { supabase, isSupabaseConfigured } from "../config/supabase";
 import { useAuth } from "../context/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function CreatePostScreen({ navigation }) {
   const { community, user } = useAuth();
+  const queryClient = useQueryClient();
   const [category, setCategory] = useState(FEED_CATEGORIES[0]);
   const [content, setContent] = useState("");
   const [posting, setPosting] = useState(false);
@@ -42,8 +44,10 @@ export default function CreatePostScreen({ navigation }) {
           content: content.trim(),
         });
         if (error) throw error;
+        await queryClient.invalidateQueries({ queryKey: ["community_posts"] });
+        await queryClient.invalidateQueries({ queryKey: ["dashboard_stats"] });
       }
-      Alert.alert("Post Published! 🎉", "Your post is now visible to all neighbours.", [
+      Alert.alert("Post Published", "Your post is now visible to all neighbours in your community.", [
         { text: "View Feed", onPress: () => navigation.goBack() },
       ]);
     } catch (e) {

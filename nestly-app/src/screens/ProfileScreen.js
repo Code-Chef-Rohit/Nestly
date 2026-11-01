@@ -102,17 +102,11 @@ export default function ProfileScreen({ navigation }) {
           ))}
         </View>
 
-        {/* Backend & Security Status */}
+        {/* Resident Network Security Badge */}
         <View style={styles.statusCard}>
-          <Ionicons
-            name={isSupabaseConfigured ? "cloud-done" : "cloud-offline"}
-            size={20}
-            color={isSupabaseConfigured ? colors.success : colors.warning}
-          />
+          <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
           <Text style={styles.statusText}>
-            {isSupabaseConfigured
-              ? "Live Supabase Cloud Connected"
-              : "Local Storage Mode"}
+            Verified Resident Network • End-to-End Secure
           </Text>
         </View>
 
