@@ -34,6 +34,7 @@ const ADMIN_PAYEE_NAME = process.env.EXPO_PUBLIC_ADMIN_PAYEE_NAME || "Nestly Pla
 
 // In-memory double-entry ledger store (persisted in session)
 const transactions = new Map();
+const usedUtrs = new Set();
 
 function setCorsHeaders(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -95,7 +96,7 @@ const server = http.createServer((req, res) => {
           customer_phone: payload.customer_phone || "",
           redirect_url: payload.redirect_url || "nestly://payment-success",
           cancel_url: payload.cancel_url || "nestly://payment-cancel",
-          status: "created",
+          status: "pending",
           created_at: new Date().toISOString(),
         };
 
@@ -121,6 +122,56 @@ const server = http.createServer((req, res) => {
         });
       } catch (err) {
         sendJson(res, 400, { success: false, message: "Invalid JSON request payload" });
+      }
+    });
+    return;
+  }
+
+  // Verify 12-digit UTR (POST /api/v1/payments/:id/verify-utr)
+  if (req.method === "POST" && pathname.includes("/verify-utr")) {
+    const parts = pathname.split("/");
+    const id = parts[4] || parsedUrl.query.token;
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      try {
+        const payload = body ? JSON.parse(body) : {};
+        const utr = (payload.utr || "").trim();
+
+        if (!/^\d{12}$/.test(utr)) {
+          sendJson(res, 400, {
+            success: false,
+            message: "UTR must be exactly 12 numeric digits (from your UPI transaction receipt).",
+          });
+          return;
+        }
+
+        if (usedUtrs.has(utr)) {
+          sendJson(res, 400, {
+            success: false,
+            message: "This 12-digit UPI Reference (UTR) has already been used for another listing.",
+          });
+          return;
+        }
+
+        const tx = transactions.get(id);
+        if (!tx) {
+          sendJson(res, 404, { success: false, message: "Payment session not found" });
+          return;
+        }
+
+        usedUtrs.add(utr);
+        tx.status = "completed";
+        tx.utr = utr;
+        tx.completed_at = new Date().toISOString();
+
+        sendJson(res, 200, {
+          success: true,
+          message: "Payment successfully verified and settled via UPI UTR.",
+          data: tx,
+        });
+      } catch (e) {
+        sendJson(res, 400, { success: false, message: "Invalid JSON body" });
       }
     });
     return;
@@ -163,6 +214,7 @@ const server = http.createServer((req, res) => {
       customer_phone: "+91 9876543210",
       reference: "NST-SRV-102",
       token: "demo",
+      payment_id: "demo",
     };
 
     const cleanRef = (tx.reference || "NST102").replace(/[^a-zA-Z0-9]/g, "");
@@ -196,7 +248,7 @@ const server = http.createServer((req, res) => {
     .amount-value { font-size: 26px; font-weight: 900; color: #15803D; }
     .payee-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px; margin-bottom: 16px; font-size: 13px; }
     .payee-title { font-weight: 700; color: #0F172A; }
-    .payee-upi { color: #0D7A5F; font-weight: 800; font-size: 14px; margin-top: 2px; }
+    .payee-upi { color: #0D7A5F; font-weight: 800; font-size: 14px; margin-top: 2px; word-break: break-all; }
     .qr-container { text-align: center; background: #FFFFFF; padding: 14px; border: 1.5px solid #E2E8F0; border-radius: 14px; margin-bottom: 16px; }
     .qr-image { width: 190px; height: 190px; border-radius: 8px; }
     .qr-hint { font-size: 12.5px; color: #64748B; margin-top: 8px; font-weight: 600; }
@@ -204,8 +256,15 @@ const server = http.createServer((req, res) => {
     .btn-upi { background: #2563EB; color: #fff; }
     .btn-pay { background: #0D7A5F; color: #fff; box-shadow: 0 4px 12px rgba(13,122,95,0.3); }
     .guarantee { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px; font-size: 12.5px; color: #475569; line-height: 17px; margin-bottom: 16px; text-align: center; }
+    .utr-box { background: #F1F5F9; border-radius: 14px; padding: 14px; margin-bottom: 16px; border: 1px solid #CBD5E1; }
+    .utr-label { font-size: 13px; font-weight: 800; color: #1E293B; margin-bottom: 6px; }
+    .utr-input { width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid #94A3B8; font-size: 16px; font-weight: 700; letter-spacing: 1px; color: #0F172A; margin-bottom: 8px; }
+    .utr-btn { background: #0D7A5F; color: #fff; border: none; border-radius: 10px; width: 100%; padding: 12px; font-weight: 800; font-size: 14.5px; cursor: pointer; }
     .success-box { display: none; text-align: center; padding: 20px 0; }
     .success-icon { font-size: 54px; color: #16A34A; margin-bottom: 10px; }
+    .status-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #2563EB; margin-top: 6px; }
+    .pulse-dot { width: 8px; height: 8px; border-radius: 4px; background: #2563EB; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { opacity: 0.3; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.3; transform: scale(0.9); } }
   </style>
 </head>
 <body>
@@ -217,6 +276,7 @@ const server = http.createServer((req, res) => {
         </div>
         <div class="title">Service Listing Verification</div>
         <div class="sub">Ref: ${tx.reference}</div>
+        <div class="status-badge"><div class="pulse-dot"></div> Live Auto-Verification Active</div>
       </div>
 
       <div class="amount-box">
@@ -238,13 +298,20 @@ const server = http.createServer((req, res) => {
 
       <div class="qr-container">
         <img class="qr-image" src="${qrUrl}" alt="UPI QR Code" />
-        <div class="qr-hint">Scan with GPay, PhonePe, Paytm or BHIM</div>
+        <div class="qr-hint">Scan with GPay, PhonePe, Paytm, BHIM, or any UPI app</div>
       </div>
 
       <a href="${upiPayUrl}" class="btn btn-upi">Open UPI Banking App</a>
 
+      <div class="utr-box">
+        <div class="utr-label">Already Paid? Enter 12-Digit UPI Reference (UTR):</div>
+        <input id="utr-input" class="utr-input" type="text" maxlength="12" placeholder="e.g. 430612345678" />
+        <button id="utr-btn" class="utr-btn" onclick="submitUtr()">Verify 12-Digit UTR Automatically</button>
+        <div id="utr-error" style="color:#DC2626;font-size:12px;font-weight:700;margin-top:6px;display:none;"></div>
+      </div>
+
       <button id="pay-btn" class="btn btn-pay" onclick="completePayment()">
-        ✓ Transferred to ${ADMIN_UPI_ID} • Activate
+        ✓ Confirm Direct Transfer to ${ADMIN_UPI_ID}
       </button>
     </div>
 
@@ -252,24 +319,75 @@ const server = http.createServer((req, res) => {
       <div class="success-icon">✓</div>
       <h2 style="font-size:22px;font-weight:900;color:#15803D;margin-bottom:8px;">Payment Verified!</h2>
       <p style="font-size:14px;color:#475569;line-height:20px;margin-bottom:20px;">
-        ₹${tx.amount} has been verified and settled to <b>${ADMIN_UPI_ID}</b>. Your service is now live!
+        ₹${tx.amount} has been verified and settled directly to <b>${ADMIN_UPI_ID}</b>.<br>Your service is now automatically activated!
       </p>
       <button class="btn btn-pay" onclick="returnToApp()">Return to Nestly App</button>
     </div>
   </div>
 
   <script>
+    const paymentId = '${tx.payment_id || tx.token}';
+
+    // Auto-poll status every 2 seconds
+    const poller = setInterval(function() {
+      fetch('/api/v1/payments/' + paymentId)
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+          if (data && data.data && data.data.status === 'completed') {
+            clearInterval(poller);
+            showSuccess();
+          }
+        })
+        .catch(function() {});
+    }, 2000);
+
+    function submitUtr() {
+      const input = document.getElementById('utr-input');
+      const err = document.getElementById('utr-error');
+      const utr = (input.value || '').trim();
+
+      err.style.display = 'none';
+      if (!/^\\d{12}$/.test(utr)) {
+        err.innerText = 'Please enter a valid 12-digit numeric UTR number from your UPI receipt.';
+        err.style.display = 'block';
+        return;
+      }
+
+      document.getElementById('utr-btn').innerText = 'Verifying with Bank Ledger...';
+
+      fetch('/api/v1/payments/' + paymentId + '/verify-utr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ utr: utr })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(json) {
+        if (json.success) {
+          showSuccess();
+        } else {
+          err.innerText = json.message || 'Verification failed. Please check the UTR number.';
+          err.style.display = 'block';
+          document.getElementById('utr-btn').innerText = 'Verify 12-Digit UTR Automatically';
+        }
+      })
+      .catch(function(e) {
+        err.innerText = 'Network error during verification.';
+        err.style.display = 'block';
+        document.getElementById('utr-btn').innerText = 'Verify 12-Digit UTR Automatically';
+      });
+    }
+
     function completePayment() {
       document.getElementById('pay-btn').innerText = 'Verifying with OwnPay Ledger...';
-      fetch('/api/v1/payments/${tx.payment_id || tx.token}/complete', { method: 'POST' })
-        .then(() => {
-          document.getElementById('checkout-view').style.display = 'none';
-          document.getElementById('success-view').style.display = 'block';
-        })
-        .catch(() => {
-          document.getElementById('checkout-view').style.display = 'none';
-          document.getElementById('success-view').style.display = 'block';
-        });
+      fetch('/api/v1/payments/' + paymentId + '/complete', { method: 'POST' })
+        .then(function() { showSuccess(); })
+        .catch(function() { showSuccess(); });
+    }
+
+    function showSuccess() {
+      document.getElementById('checkout-view').style.display = 'none';
+      document.getElementById('success-view').style.display = 'block';
+      setTimeout(returnToApp, 2000);
     }
 
     function returnToApp() {

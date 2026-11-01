@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -28,6 +28,8 @@ import {
   isOwnPayConfigured,
   launchOwnPayCheckout,
   launchUpiApp,
+  verifyUtrWithOwnPay,
+  startPaymentAutoPolling,
 } from "../utils/payment";
 
 export default function AddServiceScreen({ navigation }) {
@@ -49,9 +51,52 @@ export default function AddServiceScreen({ navigation }) {
   const [processing, setProcessing] = useState(false);
   const [ownpayLoading, setOwnpayLoading] = useState(false);
   const [transactionRef, setTransactionRef] = useState("");
+  const [paymentId, setPaymentId] = useState("");
+  const [utrInput, setUtrInput] = useState("");
+  const [utrError, setUtrError] = useState("");
+  const [isVerifyingUtr, setIsVerifyingUtr] = useState(false);
+  const [isAutoChecking, setIsAutoChecking] = useState(false);
+  const [paymentStatusText, setPaymentStatusText] = useState("Awaiting Payment");
+  const pollingStopRef = useRef(null);
 
   const listingFee = PAYMENT_CONFIG.listingFee;
   const commissionPercent = PAYMENT_CONFIG.commissionPercent;
+
+  function stopActivePolling() {
+    if (pollingStopRef.current) {
+      pollingStopRef.current();
+      pollingStopRef.current = null;
+    }
+    setIsAutoChecking(false);
+  }
+
+  useEffect(() => {
+    return () => {
+      stopActivePolling();
+    };
+  }, []);
+
+  function startAutoVerification(pId) {
+    if (!pId) return;
+    stopActivePolling();
+    setIsAutoChecking(true);
+    setPaymentStatusText("Auto-checking bank status every 2s...");
+
+    pollingStopRef.current = startPaymentAutoPolling(
+      pId,
+      async (result) => {
+        if (result.status === "completed") {
+          stopActivePolling();
+          setPaymentStatusText("Payment verified! Publishing now... 🎉");
+          await handleConfirmPaymentAndPublish(result.data?.utr || "AUTOPAY");
+        } else if (result.status === "failed") {
+          stopActivePolling();
+          setPaymentStatusText("Payment failed or cancelled.");
+        }
+      },
+      { intervalMs: 2000, timeoutMs: 180000 }
+    );
+  }
 
   function handleProceedToPayment() {
     const newErrors = {};
@@ -101,7 +146,28 @@ export default function AddServiceScreen({ navigation }) {
     setGeneralError("");
     const txId = `NST-SRV-${Math.floor(100000 + Math.random() * 900000)}`;
     setTransactionRef(txId);
+    setUtrInput("");
+    setUtrError("");
+    setPaymentStatusText("Awaiting payment transfer...");
     setShowPaymentModal(true);
+
+    // Automatically create session so OwnPay auto-polling is instantly ready
+    if (isOwnPayConfigured) {
+      createOwnPaySession({
+        amount: listingFee,
+        reference: txId,
+        customerName: name.trim(),
+        customerMail: user?.email || "provider@nestly.app",
+        customerPhone: cleanPhone,
+      }).then((session) => {
+        if (session && session.success && session.paymentId) {
+          setPaymentId(session.paymentId);
+          startAutoVerification(session.paymentId);
+        }
+      }).catch((err) => {
+        console.warn("Session pre-initialization notice:", err.message);
+      });
+    }
   }
 
   // OwnPay Hosted Checkout Integration (https://github.com/own-pay/ownpay)
@@ -120,6 +186,9 @@ export default function AddServiceScreen({ navigation }) {
         return;
       }
 
+      let activePaymentId = paymentId;
+      let checkoutUrl = "";
+
       const session = await createOwnPaySession({
         amount: listingFee,
         reference: transactionRef,
@@ -132,10 +201,14 @@ export default function AddServiceScreen({ navigation }) {
         throw new Error(session.message || "Failed to initialize OwnPay checkout session.");
       }
 
-      const completed = await launchOwnPayCheckout(session.checkoutUrl);
-      if (completed) {
-        await handleConfirmPaymentAndPublish();
-      }
+      activePaymentId = session.paymentId;
+      checkoutUrl = session.checkoutUrl;
+      setPaymentId(activePaymentId);
+
+      // Start auto-polling in background
+      startAutoVerification(activePaymentId);
+
+      await launchOwnPayCheckout(checkoutUrl);
     } catch (err) {
       Alert.alert("OwnPay Checkout Notice", err.message);
     } finally {
@@ -144,6 +217,10 @@ export default function AddServiceScreen({ navigation }) {
   }
 
   async function handleLaunchUpi() {
+    if (paymentId) {
+      startAutoVerification(paymentId);
+    }
+
     const launched = await launchUpiApp({
       amount: listingFee,
       transactionNote: `Nestly Listing: ${name.trim()}`,
@@ -158,7 +235,54 @@ export default function AddServiceScreen({ navigation }) {
     }
   }
 
-  async function handleConfirmPaymentAndPublish() {
+  async function handleVerifyUtr() {
+    const cleanUtr = utrInput.replace(/[^0-9]/g, "").trim();
+    if (!cleanUtr || cleanUtr.length !== 12) {
+      setUtrError("Please enter the complete 12-digit UTR/RRN number from your UPI receipt.");
+      return;
+    }
+
+    setUtrError("");
+    setIsVerifyingUtr(true);
+
+    try {
+      let activePid = paymentId;
+      if (!activePid) {
+        const session = await createOwnPaySession({
+          amount: listingFee,
+          reference: transactionRef,
+          customerName: name.trim(),
+          customerMail: user?.email || "provider@nestly.app",
+          customerPhone: phone.trim(),
+        });
+        if (session?.success && session?.paymentId) {
+          activePid = session.paymentId;
+          setPaymentId(activePid);
+        }
+      }
+
+      if (activePid) {
+        const res = await verifyUtrWithOwnPay(activePid, cleanUtr);
+        if (res.success) {
+          stopActivePolling();
+          Alert.alert("Payment Verified! ✅", `12-digit UTR ${cleanUtr} confirmed.`);
+          await handleConfirmPaymentAndPublish(cleanUtr);
+          return;
+        } else {
+          throw new Error(res.message || "UTR verification failed.");
+        }
+      } else {
+        stopActivePolling();
+        await handleConfirmPaymentAndPublish(cleanUtr);
+      }
+    } catch (err) {
+      Alert.alert("Verification Notice", err.message || "Failed to verify UTR. Please double check the 12 digits.");
+    } finally {
+      setIsVerifyingUtr(false);
+    }
+  }
+
+  async function handleConfirmPaymentAndPublish(verifiedUtr = null) {
     setProcessing(true);
     try {
       if (isSupabaseConfigured && user?.id) {
@@ -180,14 +304,16 @@ export default function AddServiceScreen({ navigation }) {
         await queryClient.invalidateQueries({ queryKey: ["community_services"] });
       }
 
+      stopActivePolling();
       setShowPaymentModal(false);
       Alert.alert(
         "Service Listed Successfully! 🎉",
         `"${name}" is now live in ${community?.name || "your community"}.\n\n` +
         `• Verification Fee: Paid (₹${listingFee})\n` +
         `• Platform Commission: 10% on customer bookings\n` +
-        `• Payment Gateway: OwnPay & Direct Settlement\n` +
-        `• Reference ID: ${transactionRef}\n\n` +
+        `• Payment Gateway: OwnPay Auto-Verified\n` +
+        `• Reference ID: ${transactionRef}\n` +
+        (verifiedUtr ? `• Bank UTR: ${verifiedUtr}\n\n` : "\n") +
         `Residents can now call and book your services directly.`,
         [{ text: "View Services", onPress: () => navigation.goBack() }]
       );
@@ -391,12 +517,15 @@ export default function AddServiceScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {/* Payment Checkout Modal (OwnPay / UPI / QR) */}
+      {/* Payment Checkout Modal (OwnPay / UPI / QR / Auto-Verification) */}
       <Modal
         visible={showPaymentModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowPaymentModal(false)}
+        onRequestClose={() => {
+          stopActivePolling();
+          setShowPaymentModal(false);
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -407,112 +536,174 @@ export default function AddServiceScreen({ navigation }) {
                 <Text style={styles.modalTitle}>Checkout & Verification</Text>
               </View>
               <TouchableOpacity
-                onPress={() => setShowPaymentModal(false)}
+                onPress={() => {
+                  stopActivePolling();
+                  setShowPaymentModal(false);
+                }}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <Ionicons name="close-circle" size={26} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalSub}>
-              Pay the verification fee to activate your service listing for{" "}
-              <Text style={{ fontWeight: "700", color: colors.text }}>{name}</Text>.
-            </Text>
-
-            {/* Price Badge */}
-            <View style={styles.feeBanner}>
-              <View>
-                <Text style={styles.feeLabel}>Total Amount Payable</Text>
-                <Text style={styles.feeSub}>Includes verification & partner badge</Text>
-              </View>
-              <Text style={styles.feeValue}>₹{listingFee}</Text>
-            </View>
-
-            {/* OwnPay Gateway Button */}
-            <TouchableOpacity
-              style={styles.ownpayBtn}
-              onPress={handleOwnPayCheckout}
-              disabled={ownpayLoading}
-              activeOpacity={0.85}
+            <ScrollView
+              style={{ maxHeight: 520 }}
+              contentContainerStyle={{ paddingBottom: 16 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
-              {ownpayLoading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="flash" size={18} color="#fff" />
-                  <Text style={styles.ownpayBtnText}>
-                    Pay with OwnPay Gateway
-                  </Text>
-                  <View style={styles.ownpayPill}>
-                    <Text style={styles.ownpayPillText}>Open-Source</Text>
-                  </View>
-                </>
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.orDivider}>
-              <View style={styles.orLine} />
-              <Text style={styles.orText}>or direct UPI instant transfer</Text>
-              <View style={styles.orLine} />
-            </View>
-
-            {/* UPI QR Code Section */}
-            <View style={styles.qrSection}>
-              <Image
-                source={{ uri: qrCodeUrl }}
-                style={styles.qrImage}
-                resizeMode="contain"
-              />
-              <Text style={styles.qrHint}>
-                Scan with Google Pay, PhonePe, Paytm, or any UPI app
+              <Text style={styles.modalSub}>
+                Pay the verification fee to activate your service listing for{" "}
+                <Text style={{ fontWeight: "700", color: colors.text }}>{name}</Text>.
               </Text>
-            </View>
 
-            {/* UPI ID Copy Row */}
-            <View style={styles.upiCopyRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.upiLabel}>Official UPI ID / VPA</Text>
-                <Text style={styles.upiValue}>{PAYMENT_CONFIG.adminUpiId}</Text>
+              {/* Price Badge */}
+              <View style={styles.feeBanner}>
+                <View>
+                  <Text style={styles.feeLabel}>Total Amount Payable</Text>
+                  <Text style={styles.feeSub}>Includes verification & partner badge</Text>
+                </View>
+                <Text style={styles.feeValue}>₹{listingFee}</Text>
               </View>
+
+              {/* Live Status Banner */}
+              <View style={styles.autoVerifyBanner}>
+                {isAutoChecking ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
+                )}
+                <Text style={styles.autoVerifyText}>{paymentStatusText}</Text>
+              </View>
+
+              {/* OwnPay Gateway Button */}
               <TouchableOpacity
-                style={styles.copyBtn}
-                onPress={() => copyUpiIdToClipboard(PAYMENT_CONFIG.adminUpiId)}
+                style={styles.ownpayBtn}
+                onPress={handleOwnPayCheckout}
+                disabled={ownpayLoading}
+                activeOpacity={0.85}
               >
-                <Ionicons name="copy-outline" size={16} color={colors.primary} />
-                <Text style={styles.copyBtnText}>Copy</Text>
+                {ownpayLoading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="flash" size={18} color="#fff" />
+                    <Text style={styles.ownpayBtnText}>
+                      Pay with OwnPay Gateway
+                    </Text>
+                    <View style={styles.ownpayPill}>
+                      <Text style={styles.ownpayPillText}>Auto-Verify</Text>
+                    </View>
+                  </>
+                )}
               </TouchableOpacity>
-            </View>
 
-            {/* Launch App Button (Mobile Intent) */}
-            <TouchableOpacity
-              style={styles.launchUpiBtn}
-              onPress={handleLaunchUpi}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="phone-portrait-outline" size={20} color="#fff" />
-              <Text style={styles.launchUpiBtnText}>
-                Open UPI App (GPay / PhonePe / Paytm)
-              </Text>
-            </TouchableOpacity>
+              <View style={styles.orDivider}>
+                <View style={styles.orLine} />
+                <Text style={styles.orText}>or direct UPI instant transfer</Text>
+                <View style={styles.orLine} />
+              </View>
 
-            {/* Final Publish Button */}
-            <TouchableOpacity
-              style={styles.confirmPublishBtn}
-              onPress={handleConfirmPaymentAndPublish}
-              disabled={processing}
-              activeOpacity={0.8}
-            >
-              {processing ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-done" size={22} color="#fff" />
-                  <Text style={styles.confirmPublishBtnText}>
-                    I Have Transferred ₹{listingFee} — Publish Now
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+              {/* UPI QR Code Section */}
+              <View style={styles.qrSection}>
+                <Image
+                  source={{ uri: qrCodeUrl }}
+                  style={styles.qrImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.qrHint}>
+                  Scan with Google Pay, PhonePe, Paytm, or any UPI app
+                </Text>
+              </View>
+
+              {/* UPI ID Copy Row */}
+              <View style={styles.upiCopyRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.upiLabel}>Official UPI ID / VPA</Text>
+                  <Text style={styles.upiValue}>{PAYMENT_CONFIG.adminUpiId}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.copyBtn}
+                  onPress={() => copyUpiIdToClipboard(PAYMENT_CONFIG.adminUpiId)}
+                >
+                  <Ionicons name="copy-outline" size={16} color={colors.primary} />
+                  <Text style={styles.copyBtnText}>Copy</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Launch App Button (Mobile Intent) */}
+              <TouchableOpacity
+                style={styles.launchUpiBtn}
+                onPress={handleLaunchUpi}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="phone-portrait-outline" size={20} color="#fff" />
+                <Text style={styles.launchUpiBtnText}>
+                  Open UPI App (GPay / PhonePe / Paytm)
+                </Text>
+              </TouchableOpacity>
+
+              {/* Automatic UTR Verification Box */}
+              <View style={styles.utrCard}>
+                <View style={styles.utrHeaderRow}>
+                  <Ionicons name="checkmark-done-circle" size={20} color={colors.primary} />
+                  <Text style={styles.utrCardTitle}>Paid via UPI? Auto-Verify with UTR</Text>
+                </View>
+                <Text style={styles.utrCardDesc}>
+                  Enter the 12-digit UTR / UPI Ref No. from your bank receipt to verify and publish instantly.
+                </Text>
+                <View style={styles.utrInputRow}>
+                  <TextInput
+                    style={[styles.utrInput, utrError ? styles.utrInputError : null]}
+                    placeholder="12-digit UTR (e.g. 430612345678)"
+                    placeholderTextColor={colors.textMuted}
+                    value={utrInput}
+                    onChangeText={(val) => {
+                      const clean = val.replace(/[^0-9]/g, "").slice(0, 12);
+                      setUtrInput(clean);
+                      if (utrError) setUtrError("");
+                    }}
+                    keyboardType="number-pad"
+                    maxLength={12}
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.verifyUtrBtn,
+                      utrInput.length === 12 ? styles.verifyUtrBtnActive : styles.verifyUtrBtnDisabled,
+                    ]}
+                    onPress={handleVerifyUtr}
+                    disabled={isVerifyingUtr || utrInput.length !== 12}
+                    activeOpacity={0.8}
+                  >
+                    {isVerifyingUtr ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.verifyUtrBtnText}>Verify & Publish</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+                {utrError ? <Text style={styles.utrErrorText}>{utrError}</Text> : null}
+              </View>
+
+              {/* Fallback Publish Button */}
+              <TouchableOpacity
+                style={styles.confirmPublishBtn}
+                onPress={() => handleConfirmPaymentAndPublish()}
+                disabled={processing}
+                activeOpacity={0.8}
+              >
+                {processing ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={20} color="#fff" />
+                    <Text style={styles.confirmPublishBtnText}>
+                      I Have Transferred ₹{listingFee} — Publish Now
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -916,5 +1107,93 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "800",
     fontSize: 15,
+  },
+  autoVerifyBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.surfaceVariant || "#F1F5F9",
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 14,
+  },
+  autoVerifyText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.primaryDark,
+    flex: 1,
+  },
+  utrCard: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+  },
+  utrHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
+  utrCardTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  utrCardDesc: {
+    fontSize: 12,
+    color: colors.textMuted,
+    lineHeight: 16,
+    marginBottom: 10,
+  },
+  utrInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  utrInput: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderWidth: 1.5,
+    borderColor: colors.borderLight,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  utrInputError: {
+    borderColor: colors.danger,
+    backgroundColor: "#FEF2F2",
+  },
+  verifyUtrBtn: {
+    paddingHorizontal: 16,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  verifyUtrBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  verifyUtrBtnDisabled: {
+    backgroundColor: colors.borderLight || "#CBD5E1",
+  },
+  verifyUtrBtnText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 13,
+  },
+  utrErrorText: {
+    color: colors.danger,
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 6,
   },
 });

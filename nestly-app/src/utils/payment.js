@@ -143,6 +143,84 @@ export async function verifyOwnPayStatus(paymentId) {
 }
 
 /**
+ * Submits and verifies a 12-digit UPI UTR / RRN reference number
+ * (POST /api/v1/payments/{payment_id}/verify-utr)
+ */
+export async function verifyUtrWithOwnPay(paymentId, utr) {
+  const endpoint = getOwnPayEndpoint();
+  if (!endpoint || !paymentId || !utr) {
+    return { success: false, message: "Payment ID and 12-digit UTR are required." };
+  }
+
+  try {
+    const res = await fetch(`${endpoint}/api/v1/payments/${paymentId}/verify-utr`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${PAYMENT_CONFIG.ownpayApiKey}`,
+      },
+      body: JSON.stringify({ utr: utr.trim() }),
+    });
+
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.warn("OwnPay UTR verification error:", err.message);
+    return { success: false, message: err.message || "Network error during UTR verification." };
+  }
+}
+
+/**
+ * Real-time Auto-Polling: polls payment status until 'completed' or timeout.
+ * Calls onStatusChange({ status, data }) whenever status updates.
+ * Returns a cancel function.
+ */
+export function startPaymentAutoPolling(
+  paymentId,
+  onStatusChange,
+  { intervalMs = 2000, timeoutMs = 180000 } = {}
+) {
+  let isCancelled = false;
+  let timerId = null;
+  const startTime = Date.now();
+
+  const poll = async () => {
+    if (isCancelled) return;
+    if (Date.now() - startTime > timeoutMs) {
+      if (onStatusChange) onStatusChange({ status: "timeout", message: "Verification timed out." });
+      return;
+    }
+
+    try {
+      const result = await verifyOwnPayStatus(paymentId);
+      if (isCancelled) return;
+
+      if (result.success && result.status === "completed") {
+        if (onStatusChange) onStatusChange({ status: "completed", data: result.data });
+        return; // stop polling on success
+      } else if (result.status === "failed") {
+        if (onStatusChange) onStatusChange({ status: "failed", data: result.data });
+        return;
+      }
+    } catch (e) {
+      // Continue polling on transient errors
+    }
+
+    if (!isCancelled) {
+      timerId = setTimeout(poll, intervalMs);
+    }
+  };
+
+  timerId = setTimeout(poll, intervalMs);
+
+  return () => {
+    isCancelled = true;
+    if (timerId) clearTimeout(timerId);
+  };
+}
+
+/**
  * Opens the OwnPay hosted white-label checkout in secure WebBrowser session
  */
 export async function launchOwnPayCheckout(checkoutUrl) {
