@@ -1,4 +1,5 @@
 import React from "react";
+import { Platform } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -74,9 +75,21 @@ function MainStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="MainTabs" component={MainTabs} />
-      <Stack.Screen name="CreatePost" component={CreatePostScreen} presentation="modal" />
-      <Stack.Screen name="ReportIssue" component={ReportIssueScreen} presentation="modal" />
-      <Stack.Screen name="AddService" component={AddServiceScreen} presentation="modal" />
+      <Stack.Screen
+        name="CreatePost"
+        component={CreatePostScreen}
+        options={{ presentation: Platform.OS === "ios" ? "modal" : "card" }}
+      />
+      <Stack.Screen
+        name="ReportIssue"
+        component={ReportIssueScreen}
+        options={{ presentation: Platform.OS === "ios" ? "modal" : "card" }}
+      />
+      <Stack.Screen
+        name="AddService"
+        component={AddServiceScreen}
+        options={{ presentation: Platform.OS === "ios" ? "modal" : "card" }}
+      />
       <Stack.Screen name="LocationSelection" component={LocationSelectionScreen} />
       <Stack.Screen name="JoinCommunity" component={JoinCommunityScreen} />
     </Stack.Navigator>
