@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
 import colors from "../theme/colors";
 import { SERVICE_CATEGORIES } from "../constants/categories";
 import { supabase, isSupabaseConfigured } from "../config/supabase";
@@ -31,6 +32,7 @@ import {
 
 export default function AddServiceScreen({ navigation }) {
   const { community, user } = useAuth();
+  const queryClient = useQueryClient();
 
   const [name, setName] = useState("");
   const [category, setCategory] = useState(SERVICE_CATEGORIES[0]);
@@ -58,6 +60,10 @@ export default function AddServiceScreen({ navigation }) {
     }
     if (!startingPrice.trim() || isNaN(startingPrice)) {
       Alert.alert("Valid Price Required", "Please enter a valid starting price in ₹.");
+      return;
+    }
+    if (!user?.id) {
+      Alert.alert("Account Required", "Please log in to your resident account before listing a service.");
       return;
     }
     if (!community?.id) {
@@ -143,6 +149,7 @@ export default function AddServiceScreen({ navigation }) {
         });
 
         if (error) throw error;
+        await queryClient.invalidateQueries({ queryKey: ["community_services"] });
       }
 
       setShowPaymentModal(false);

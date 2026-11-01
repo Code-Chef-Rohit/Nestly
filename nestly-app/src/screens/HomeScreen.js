@@ -26,7 +26,7 @@ function greeting() {
 
 export default function HomeScreen({ navigation }) {
   const { user, community } = useAuth();
-  const [stats, setStats] = useState({ postsCount: 0, issuesCount: 0, announcementsCount: 0 });
+  const [stats, setStats] = useState({ postsCount: 0, issuesCount: 0, announcementsCount: 0, servicesCount: 0 });
   const [refreshing, setRefreshing] = useState(false);
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
 
@@ -37,15 +37,17 @@ export default function HomeScreen({ navigation }) {
   async function fetchDashboardStats() {
     if (!community?.id || !isSupabaseConfigured) return;
     try {
-      const [pRes, iRes, aRes] = await Promise.all([
+      const [pRes, iRes, aRes, sRes] = await Promise.all([
         supabase.from("posts").select("id", { count: "exact" }).eq("community_id", community.id),
         supabase.from("issues").select("id", { count: "exact" }).eq("community_id", community.id),
         supabase.from("announcements").select("id", { count: "exact" }).eq("community_id", community.id),
+        supabase.from("services").select("id", { count: "exact" }).or(`community_id.eq.${community.id},community_id.is.null`),
       ]);
       setStats({
         postsCount: pRes.count || 0,
         issuesCount: iRes.count || 0,
         announcementsCount: aRes.count || 0,
+        servicesCount: sRes.count || 0,
       });
     } catch (err) {
       console.warn("Notice loading stats:", err.message);
@@ -260,8 +262,8 @@ export default function HomeScreen({ navigation }) {
             <View style={[styles.statIconWrap, { backgroundColor: colors.infoLight }]}>
               <Ionicons name="briefcase" size={22} color={colors.info} />
             </View>
-            <Text style={styles.statCount}>10+</Text>
-            <Text style={styles.statLabel}>Local Pros</Text>
+            <Text style={styles.statCount}>{stats.servicesCount}</Text>
+            <Text style={styles.statLabel}>Local Services</Text>
           </TouchableOpacity>
         </View>
 

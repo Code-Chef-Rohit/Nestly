@@ -17,67 +17,14 @@ import { SERVICE_CATEGORIES } from "../constants/categories";
 import { supabase, isSupabaseConfigured } from "../config/supabase";
 import { useAuth } from "../context/AuthContext";
 
-const DEFAULT_COMMUNITY_SERVICES = [
-  {
-    id: "def-1",
-    name: "24x7 Emergency Plumber",
-    category: "Plumber",
-    phone: "9876543211",
-    rating: "4.9",
-    starting_price: "299",
-    verified: true,
-    distanceKm: "0.8",
-  },
-  {
-    id: "def-2",
-    name: "Express Electrician & Power Repair",
-    category: "Electrician",
-    phone: "9876543212",
-    rating: "4.8",
-    starting_price: "199",
-    verified: true,
-    distanceKm: "1.2",
-  },
-  {
-    id: "def-3",
-    name: "Senior Home Care & Nursing Support",
-    category: "Health & Care",
-    phone: "14567",
-    rating: "5.0",
-    starting_price: "0",
-    verified: true,
-    distanceKm: "0.5",
-  },
-  {
-    id: "def-4",
-    name: "CoolCare AC & Appliance Service",
-    category: "AC Repair",
-    phone: "9876543213",
-    rating: "4.7",
-    starting_price: "399",
-    verified: true,
-    distanceKm: "1.5",
-  },
-  {
-    id: "def-5",
-    name: "Neighbourhood Home Cleaning & Sanitization",
-    category: "Cleaning",
-    phone: "9876543214",
-    rating: "4.8",
-    starting_price: "499",
-    verified: true,
-    distanceKm: "2.0",
-  },
-];
-
 export default function ServicesScreen({ navigation }) {
   const { community, user } = useAuth();
   const [tab, setTab] = useState("services"); // 'services' | 'issues'
   const [category, setCategory] = useState("All");
 
-  // Cached Services Query - real Supabase table
+  // Purely Real Supabase Query — no mock or placeholder data
   const {
-    data: dbServices = [],
+    data: services = [],
     isLoading: servicesLoading,
     isRefetching: servicesRefetching,
     refetch: refetchServices,
@@ -85,7 +32,7 @@ export default function ServicesScreen({ navigation }) {
     queryKey: ["community_services", community?.id],
     queryFn: async () => {
       if (!isSupabaseConfigured) return [];
-      let query = supabase.from("services").select("*").order("rating", { ascending: false });
+      let query = supabase.from("services").select("*").order("created_at", { ascending: false });
       if (community?.id) {
         query = query.or(`community_id.eq.${community.id},community_id.is.null`);
       }
@@ -93,11 +40,8 @@ export default function ServicesScreen({ navigation }) {
       if (error) throw error;
       return data || [];
     },
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 3,
   });
-
-  // Blend with default community services if DB is empty so screen is never blank
-  const services = dbServices.length > 0 ? dbServices : DEFAULT_COMMUNITY_SERVICES;
 
   // Cached Issues Query
   const {
@@ -122,7 +66,7 @@ export default function ServicesScreen({ navigation }) {
   const filteredServices =
     category === "All"
       ? services
-      : services.filter((s) => s.category.toLowerCase().includes(category.toLowerCase()));
+      : services.filter((s) => s.category?.toLowerCase().includes(category.toLowerCase()));
 
   const isCurrentLoading = tab === "services" ? servicesLoading : issuesLoading;
   const isCurrentRefetching = tab === "services" ? servicesRefetching : issuesRefetching;
@@ -165,7 +109,7 @@ export default function ServicesScreen({ navigation }) {
               color={tab === "services" ? "#fff" : colors.textMuted}
             />
             <Text style={[styles.tabText, tab === "services" && styles.tabTextActive]}>
-              Local Pros & Help
+              Local Services ({services.length})
             </Text>
           </TouchableOpacity>
 
@@ -233,7 +177,7 @@ export default function ServicesScreen({ navigation }) {
             {isCurrentLoading ? (
               <View style={styles.center}>
                 <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={styles.loadingText}>Finding local services...</Text>
+                <Text style={styles.loadingText}>Loading verified services...</Text>
               </View>
             ) : (
               <FlatList
@@ -248,6 +192,29 @@ export default function ServicesScreen({ navigation }) {
                   />
                 }
                 renderItem={({ item }) => <ServiceCard service={item} />}
+                ListEmptyComponent={
+                  <View style={styles.emptyBox}>
+                    <View style={styles.emptyIconCircle}>
+                      <Ionicons name="construct-outline" size={40} color={colors.primary} />
+                    </View>
+                    <Text style={styles.emptyTitle}>
+                      {category === "All"
+                        ? `No services listed in ${community?.name || "your area"} yet`
+                        : `No ${category} listed yet`}
+                    </Text>
+                    <Text style={styles.emptySub}>
+                      Be the first local provider to list your service, receive customer bookings from neighbours, and earn with 10% platform protection!
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.firstServiceBtn}
+                      onPress={() => navigation.navigate("AddService")}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="add-circle" size={20} color="#fff" />
+                      <Text style={styles.firstServiceBtnText}>+ List Your Service Now</Text>
+                    </TouchableOpacity>
+                  </View>
+                }
               />
             )}
           </>
@@ -447,14 +414,14 @@ const styles = StyleSheet.create({
   },
   emptyBox: {
     alignItems: "center",
-    marginTop: 50,
+    marginTop: 40,
     paddingHorizontal: 24,
   },
   emptyIconCircle: {
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: colors.successLight,
+    backgroundColor: colors.primaryLight,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 14,
@@ -466,10 +433,30 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   emptySub: {
-    marginTop: 6,
+    marginTop: 8,
     fontSize: 14,
     color: colors.textMuted,
     textAlign: "center",
     lineHeight: 20,
+    marginBottom: 20,
+  },
+  firstServiceBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    borderRadius: 14,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  firstServiceBtnText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 15,
   },
 });
