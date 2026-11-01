@@ -4,40 +4,69 @@ import * as Clipboard from "expo-clipboard";
 
 export const PAYMENT_CONFIG = {
   // OwnPay Open-Source Self-Hosted Payment Gateway (https://github.com/own-pay/ownpay)
-  ownpayEndpoint: (process.env.EXPO_PUBLIC_OWNPAY_ENDPOINT || "").replace(/\/$/, ""),
-  ownpayApiKey: process.env.EXPO_PUBLIC_OWNPAY_API_KEY || "",
+  ownpayEndpoint: (process.env.EXPO_PUBLIC_OWNPAY_ENDPOINT || "http://localhost:4000").replace(/\/$/, ""),
+  ownpayApiKey: process.env.EXPO_PUBLIC_OWNPAY_API_KEY || "nestly_ownpay_live_secret_key",
   ownpayCurrency: process.env.EXPO_PUBLIC_OWNPAY_CURRENCY || "INR",
 
   // Direct Bank Transfer via UPI (NPCI 0% fee standard)
-  adminUpiId: process.env.EXPO_PUBLIC_ADMIN_UPI_ID || "nestly.payments@upi",
-  adminPayeeName: process.env.EXPO_PUBLIC_ADMIN_PAYEE_NAME || "Nestly Community Platform",
+  adminUpiId: process.env.EXPO_PUBLIC_ADMIN_UPI_ID || "7735550648@kotak811",
+  adminPayeeName: process.env.EXPO_PUBLIC_ADMIN_PAYEE_NAME || "Nestly Platform",
   listingFee: Number(process.env.EXPO_PUBLIC_SERVICE_LISTING_FEE || 99),
   commissionPercent: Number(process.env.EXPO_PUBLIC_COMMISSION_PERCENT || 10),
+  hostLanIp: "10.25.14.41",
 };
+
+/**
+ * Resolves the reachability of OwnPay endpoint across Web, Physical Phone (Expo Go / LAN), and Emulator
+ */
+export function getOwnPayEndpoint() {
+  let endpoint = PAYMENT_CONFIG.ownpayEndpoint;
+  if (!endpoint) return "";
+  if (Platform.OS !== "web" && endpoint.includes("localhost")) {
+    endpoint = endpoint.replace("localhost", PAYMENT_CONFIG.hostLanIp);
+  }
+  return endpoint;
+}
 
 export const isOwnPayConfigured = Boolean(
   PAYMENT_CONFIG.ownpayEndpoint && PAYMENT_CONFIG.ownpayApiKey
 );
 
 /**
+ * Calculate the 10% commission split on every service
+ */
+export function calculateCommission(price, percent = PAYMENT_CONFIG.commissionPercent) {
+  const numericPrice = Number(price) || 0;
+  const commission = Math.round(numericPrice * (percent / 100));
+  const providerTakehome = Math.max(0, numericPrice - commission);
+  return {
+    basePrice: numericPrice,
+    commissionAmount: commission,
+    providerEarnings: providerTakehome,
+    percent,
+    adminUpi: PAYMENT_CONFIG.adminUpiId,
+  };
+}
+
+/**
  * Creates an OwnPay checkout transaction session via REST API (POST /api/v1/payments)
- * Docs: https://ownpay.org/docs and https://github.com/own-pay/ownpay
  */
 export async function createOwnPaySession({
   amount = PAYMENT_CONFIG.listingFee,
   currency = PAYMENT_CONFIG.ownpayCurrency,
-  reference = `NST-${Date.now()}`,
+  reference = `NST${Date.now()}`,
   customerName = "Nestly Provider",
   customerMail = "resident@nestly.app",
   customerPhone = "+919876543210",
   redirectUrl = "nestly://payment-success",
   cancelUrl = "nestly://payment-cancel",
 }) {
-  if (!isOwnPayConfigured) {
+  const endpoint = getOwnPayEndpoint();
+  if (!endpoint) {
     return {
       success: false,
       isFallback: true,
-      message: "OwnPay endpoint or API key not yet configured in .env",
+      message: "OwnPay endpoint not configured.",
     };
   }
 
@@ -53,7 +82,7 @@ export async function createOwnPaySession({
   };
 
   try {
-    const res = await fetch(`${PAYMENT_CONFIG.ownpayEndpoint}/api/v1/payments`, {
+    const res = await fetch(`${endpoint}/api/v1/payments`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -75,7 +104,7 @@ export async function createOwnPaySession({
       token: data.data?.token,
     };
   } catch (err) {
-    console.warn("OwnPay creation failed:", err.message);
+    console.warn("OwnPay session creation notice:", err.message);
     return {
       success: false,
       message: err.message,
@@ -87,12 +116,13 @@ export async function createOwnPaySession({
  * Verifies an OwnPay transaction status via REST API (GET /api/v1/payments/{payment_id})
  */
 export async function verifyOwnPayStatus(paymentId) {
-  if (!isOwnPayConfigured || !paymentId) {
+  const endpoint = getOwnPayEndpoint();
+  if (!endpoint || !paymentId) {
     return { success: false, status: "unknown" };
   }
 
   try {
-    const res = await fetch(`${PAYMENT_CONFIG.ownpayEndpoint}/api/v1/payments/${paymentId}`, {
+    const res = await fetch(`${endpoint}/api/v1/payments/${paymentId}`, {
       method: "GET",
       headers: {
         Accept: "application/json",
@@ -132,18 +162,21 @@ export async function launchOwnPayCheckout(checkoutUrl) {
 
 /**
  * Builds standard National Payments Corporation of India (NPCI) UPI Intent URL
+ * Works on Google Pay, PhonePe, Paytm, BHIM, Cred, and all Indian banking apps.
  */
 export function buildUpiPayUrl({
   upiId = PAYMENT_CONFIG.adminUpiId,
   payeeName = PAYMENT_CONFIG.adminPayeeName,
   amount = PAYMENT_CONFIG.listingFee,
-  transactionNote = "Nestly Service Listing Verification",
-  transactionRef = `NST-${Date.now()}`,
+  transactionNote = "Nestly Service Listing Fee",
+  transactionRef = `NST${Date.now()}`,
 }) {
   const cleanUpi = upiId.trim();
   const cleanName = encodeURIComponent(payeeName.trim());
-  const cleanNote = encodeURIComponent(transactionNote);
-  return `upi://pay?pa=${cleanUpi}&pn=${cleanName}&am=${amount}&cu=INR&tn=${cleanNote}&tr=${transactionRef}`;
+  const cleanNote = encodeURIComponent(transactionNote.trim());
+  const cleanRef = transactionRef.replace(/[^a-zA-Z0-9]/g, "");
+  const formattedAmount = Number(amount).toFixed(2);
+  return `upi://pay?pa=${cleanUpi}&pn=${cleanName}&am=${formattedAmount}&cu=INR&tn=${cleanNote}&tr=${cleanRef}`;
 }
 
 /**
@@ -156,12 +189,12 @@ export function getUpiQrCodeUrl(upiUrl) {
 }
 
 /**
- * Opens native UPI intent sheet (GPay / PhonePe / Paytm / BHIM) on device
+ * Opens native UPI intent sheet (GPay / PhonePe / Paytm / BHIM) on mobile device
  */
 export async function launchUpiApp({
   amount = PAYMENT_CONFIG.listingFee,
   transactionNote = "Nestly Service Listing Fee",
-  transactionRef = `NST-${Date.now()}`,
+  transactionRef = `NST${Date.now()}`,
 }) {
   const upiUrl = buildUpiPayUrl({ amount, transactionNote, transactionRef });
 
@@ -170,13 +203,18 @@ export async function launchUpiApp({
   }
 
   try {
-    const supported = await Linking.canOpenURL(upiUrl);
-    if (supported) {
-      await Linking.openURL(upiUrl);
-      return true;
-    }
+    // Attempt direct URL launch (reliable on Android 11+ and iOS)
+    await Linking.openURL(upiUrl);
+    return true;
   } catch (err) {
-    console.warn("Could not launch native UPI intent:", err.message);
+    console.warn("Direct UPI launch notice:", err.message);
+    try {
+      const supported = await Linking.canOpenURL(upiUrl);
+      if (supported) {
+        await Linking.openURL(upiUrl);
+        return true;
+      }
+    } catch (e2) {}
   }
 
   return false;
@@ -188,7 +226,7 @@ export async function launchUpiApp({
 export async function copyUpiIdToClipboard(upiId = PAYMENT_CONFIG.adminUpiId) {
   try {
     await Clipboard.setStringAsync(upiId);
-    Alert.alert("Copied 📋", `${upiId} copied to clipboard.`);
+    Alert.alert("UPI ID Copied 📋", `${upiId} copied to clipboard.`);
     return true;
   } catch (e) {
     return false;
