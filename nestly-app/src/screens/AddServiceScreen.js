@@ -83,18 +83,18 @@ export default function AddServiceScreen({ navigation }) {
     if (!pId) return;
     stopActivePolling();
     setIsAutoChecking(true);
-    setPaymentStatusText("Auto-checking bank status every 2s...");
+    setPaymentStatusText("Checking payment status...");
 
     pollingStopRef.current = startPaymentAutoPolling(
       pId,
       async (result) => {
         if (result.status === "completed") {
           stopActivePolling();
-          setPaymentStatusText("Payment verified! Publishing now... 🎉");
+          setPaymentStatusText("Payment confirmed. Setting up listing...");
           await handleConfirmPaymentAndPublish(result.data?.utr || "AUTOPAY");
         } else if (result.status === "failed") {
           stopActivePolling();
-          setPaymentStatusText("Payment failed or cancelled.");
+          setPaymentStatusText("Payment could not be verified.");
         }
       },
       { intervalMs: 2000, timeoutMs: 180000 }
@@ -321,14 +321,13 @@ export default function AddServiceScreen({ navigation }) {
       stopActivePolling();
       setShowPaymentModal(false);
       Alert.alert(
-        "Service Listed Successfully! 🎉",
+        "Listing Activated",
         `"${name}" is now live in ${community?.name || "your community"}.\n\n` +
-        `• Verification Fee: Paid (₹${listingFee})\n` +
-        `• Platform Commission: 10% on customer bookings\n` +
-        `• Payment Gateway: OwnPay Auto-Verified\n` +
+        `• Verification: Confirmed (₹${listingFee})\n` +
+        `• Platform Fee: 10% on completed bookings\n` +
         `• Reference ID: ${transactionRef}\n` +
         (verifiedUtr ? `• Bank UTR: ${verifiedUtr}\n\n` : "\n") +
-        `Residents can now call and book your services directly.`,
+        `Residents in your area can now call and book your services directly.`,
         [{ text: "View Services", onPress: () => navigation.goBack() }]
       );
     } catch (err) {
@@ -477,55 +476,55 @@ export default function AddServiceScreen({ navigation }) {
             />
           </View>
 
-          {/* Monetization & 10% Commission Card */}
+          {/* Transparent Pricing & Terms */}
           <View style={styles.commissionCard}>
             <View style={styles.commissionHeader}>
-              <Ionicons name="shield-checkmark" size={24} color={colors.primary} />
-              <Text style={styles.commissionTitle}>Nestly Partner Terms</Text>
+              <Ionicons name="shield-checkmark" size={22} color={colors.primary} />
+              <Text style={styles.commissionTitle}>Pricing & Verification</Text>
             </View>
 
             <View style={styles.commissionRow}>
               <Ionicons name="checkmark-circle" size={16} color={colors.success} />
               <Text style={styles.commissionText}>
-                <Text style={{ fontWeight: "800" }}>{commissionPercent}% Platform Fee</Text> on customer bookings you receive.
+                <Text style={{ fontWeight: "700" }}>Annual Listing Fee: ₹{listingFee}</Text> for 365 days of active visibility and a verified badge.
               </Text>
             </View>
 
             <View style={styles.commissionRow}>
               <Ionicons name="checkmark-circle" size={16} color={colors.success} />
               <Text style={styles.commissionText}>
-                <Text style={{ fontWeight: "800" }}>One-time Verification Deposit</Text>: ₹{listingFee} to verify your phone number and badge.
+                <Text style={{ fontWeight: "700" }}>{commissionPercent}% fee per booking</Text> from residents. You retain 90% of your earnings.
               </Text>
             </View>
 
             <View style={styles.commissionRow}>
-              <Ionicons name="globe-outline" size={16} color={colors.info} />
+              <Ionicons name="flash-outline" size={16} color={colors.primary} />
               <Text style={styles.commissionText}>
-                Powered by <Text style={{ fontWeight: "800" }}>OwnPay</Text> open-source payment infrastructure.
+                Direct UPI transfer with instant bank verification.
               </Text>
             </View>
           </View>
 
-          {/* Prominent Visual Error Alert Banner */}
+          {/* Error Banner */}
           {generalError ? (
             <View style={styles.errorAlertBox}>
-              <Ionicons name="alert-circle" size={22} color={colors.danger} />
+              <Ionicons name="alert-circle" size={20} color={colors.danger} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.errorAlertTitle}>Please Complete Required Details</Text>
+                <Text style={styles.errorAlertTitle}>Please check the form</Text>
                 <Text style={styles.errorAlertText}>{generalError}</Text>
               </View>
             </View>
           ) : null}
 
-          {/* Proceed to Payment Button */}
+          {/* Proceed Button */}
           <TouchableOpacity
             style={styles.submitBtn}
             onPress={handleProceedToPayment}
             activeOpacity={0.8}
           >
-            <Ionicons name="card" size={20} color="#fff" />
+            <Ionicons name="arrow-forward" size={18} color="#fff" />
             <Text style={styles.submitBtnText}>
-              Pay ₹{listingFee} & Activate Service Listing
+              Continue to Payment (₹{listingFee})
             </Text>
           </TouchableOpacity>
         </View>

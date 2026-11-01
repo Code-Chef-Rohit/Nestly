@@ -141,9 +141,9 @@ export default function ServicesScreen({ navigation }) {
                 <Ionicons name="briefcase" size={20} color={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.partnerBannerTitle}>Provide a service to neighbours?</Text>
+                <Text style={styles.partnerBannerTitle}>Offer a service in your area?</Text>
                 <Text style={styles.partnerBannerSubtitle}>
-                  List your service in {community?.name || "your community"} with 10% platform protection.
+                  List your service in {community?.name || "your community"} directory.
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.primary} />
@@ -203,15 +203,15 @@ export default function ServicesScreen({ navigation }) {
                         : `No ${category} listed yet`}
                     </Text>
                     <Text style={styles.emptySub}>
-                      Be the first local provider to list your service, receive customer bookings from neighbours, and earn with 10% platform protection!
+                      Be the first to list a service and connect with neighbours who need assistance.
                     </Text>
                     <TouchableOpacity
                       style={styles.firstServiceBtn}
                       onPress={() => navigation.navigate("AddService")}
                       activeOpacity={0.8}
                     >
-                      <Ionicons name="add-circle" size={20} color="#fff" />
-                      <Text style={styles.firstServiceBtnText}>+ List Your Service Now</Text>
+                      <Ionicons name="add-circle" size={18} color="#fff" />
+                      <Text style={styles.firstServiceBtnText}>List a Service</Text>
                     </TouchableOpacity>
                   </View>
                 }
