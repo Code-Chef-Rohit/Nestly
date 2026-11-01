@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import colors from "../theme/colors";
 
 export default function ServiceCard({ service }) {
-  const phoneNumber = service.phone || "9876543210";
+  const phoneNumber = service.phone || service.location || "9876543210";
   const price = service.starting_price || service.startingPrice;
 
   const handleCall = () => {

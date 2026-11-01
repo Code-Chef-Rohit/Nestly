@@ -133,9 +133,11 @@ export default function AddServiceScreen({ navigation }) {
           community_id: community.id,
           category,
           name: name.trim(),
-          phone: phone.trim(),
-          starting_price: Number(startingPrice),
-          description: description.trim(),
+          location: phone.trim(),
+          starting_price: Number(startingPrice) || 199,
+          description: description.trim()
+            ? `${description.trim()} • Direct Phone: ${phone.trim()}`
+            : `Direct Phone: ${phone.trim()}`,
           rating: 5.0,
           verified: true,
         });
