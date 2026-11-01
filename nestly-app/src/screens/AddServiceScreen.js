@@ -22,7 +22,10 @@ import {
   PAYMENT_CONFIG,
   buildUpiPayUrl,
   copyUpiIdToClipboard,
+  createOwnPaySession,
   getUpiQrCodeUrl,
+  isOwnPayConfigured,
+  launchOwnPayCheckout,
   launchUpiApp,
 } from "../utils/payment";
 
@@ -38,6 +41,7 @@ export default function AddServiceScreen({ navigation }) {
   // Payment State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [ownpayLoading, setOwnpayLoading] = useState(false);
   const [transactionRef, setTransactionRef] = useState("");
 
   const listingFee = PAYMENT_CONFIG.listingFee;
@@ -64,6 +68,45 @@ export default function AddServiceScreen({ navigation }) {
     const txId = `NST-SRV-${Math.floor(100000 + Math.random() * 900000)}`;
     setTransactionRef(txId);
     setShowPaymentModal(true);
+  }
+
+  // OwnPay Hosted Checkout Integration (https://github.com/own-pay/ownpay)
+  async function handleOwnPayCheckout() {
+    setOwnpayLoading(true);
+    try {
+      if (!isOwnPayConfigured) {
+        Alert.alert(
+          "OwnPay Server Setup",
+          "OwnPay endpoint is not yet connected in .env.\n\n" +
+          "To use your self-hosted OwnPay server:\n" +
+          "1. Set EXPO_PUBLIC_OWNPAY_ENDPOINT in .env\n" +
+          "2. Set EXPO_PUBLIC_OWNPAY_API_KEY in .env\n\n" +
+          "In the meantime, you can use Direct UPI Instant Transfer below!"
+        );
+        return;
+      }
+
+      const session = await createOwnPaySession({
+        amount: listingFee,
+        reference: transactionRef,
+        customerName: name.trim(),
+        customerMail: user?.email || "provider@nestly.app",
+        customerPhone: phone.trim(),
+      });
+
+      if (!session.success || !session.checkoutUrl) {
+        throw new Error(session.message || "Failed to initialize OwnPay checkout session.");
+      }
+
+      const completed = await launchOwnPayCheckout(session.checkoutUrl);
+      if (completed) {
+        await handleConfirmPaymentAndPublish();
+      }
+    } catch (err) {
+      Alert.alert("OwnPay Checkout Notice", err.message);
+    } finally {
+      setOwnpayLoading(false);
+    }
   }
 
   async function handleLaunchUpi() {
@@ -104,8 +147,9 @@ export default function AddServiceScreen({ navigation }) {
       Alert.alert(
         "Service Listed Successfully! 🎉",
         `"${name}" is now live in ${community?.name || "your community"}.\n\n` +
-        `• Listing Fee: Paid (₹${listingFee})\n` +
-        `• Commission: 10% on customer bookings\n` +
+        `• Verification Fee: Paid (₹${listingFee})\n` +
+        `• Platform Commission: 10% on customer bookings\n` +
+        `• Payment Gateway: OwnPay & Direct Settlement\n` +
         `• Reference ID: ${transactionRef}\n\n` +
         `Residents can now call and book your services directly.`,
         [{ text: "View Services", onPress: () => navigation.goBack() }]
@@ -253,9 +297,9 @@ export default function AddServiceScreen({ navigation }) {
             </View>
 
             <View style={styles.commissionRow}>
-              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+              <Ionicons name="globe-outline" size={16} color={colors.info} />
               <Text style={styles.commissionText}>
-                Direct calls & inquiries from verified residents of {community?.name || "your area"}.
+                Powered by <Text style={{ fontWeight: "800" }}>OwnPay</Text> open-source payment infrastructure.
               </Text>
             </View>
           </View>
@@ -274,7 +318,7 @@ export default function AddServiceScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {/* Payment Checkout Modal (UPI / QR / Bank) */}
+      {/* Payment Checkout Modal (OwnPay / UPI / QR) */}
       <Modal
         visible={showPaymentModal}
         transparent
@@ -287,7 +331,7 @@ export default function AddServiceScreen({ navigation }) {
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Ionicons name="wallet" size={24} color={colors.primary} />
-                <Text style={styles.modalTitle}>Complete Verification</Text>
+                <Text style={styles.modalTitle}>Checkout & Verification</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setShowPaymentModal(false)}
@@ -306,9 +350,37 @@ export default function AddServiceScreen({ navigation }) {
             <View style={styles.feeBanner}>
               <View>
                 <Text style={styles.feeLabel}>Total Amount Payable</Text>
-                <Text style={styles.feeSub}>Includes verification & badge</Text>
+                <Text style={styles.feeSub}>Includes verification & partner badge</Text>
               </View>
               <Text style={styles.feeValue}>₹{listingFee}</Text>
+            </View>
+
+            {/* OwnPay Gateway Button */}
+            <TouchableOpacity
+              style={styles.ownpayBtn}
+              onPress={handleOwnPayCheckout}
+              disabled={ownpayLoading}
+              activeOpacity={0.85}
+            >
+              {ownpayLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="flash" size={18} color="#fff" />
+                  <Text style={styles.ownpayBtnText}>
+                    Pay with OwnPay Gateway
+                  </Text>
+                  <View style={styles.ownpayPill}>
+                    <Text style={styles.ownpayPillText}>Open-Source</Text>
+                  </View>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <View style={styles.orDivider}>
+              <View style={styles.orLine} />
+              <Text style={styles.orText}>or direct UPI instant transfer</Text>
+              <View style={styles.orLine} />
             </View>
 
             {/* UPI QR Code Section */}
@@ -554,7 +626,7 @@ const styles = StyleSheet.create({
   modalSub: {
     fontSize: 13.5,
     color: colors.textMuted,
-    marginBottom: 16,
+    marginBottom: 14,
     lineHeight: 19,
   },
   feeBanner: {
@@ -565,7 +637,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 14,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   feeLabel: {
     fontSize: 15,
@@ -582,24 +654,71 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: colors.primaryDark,
   },
+  ownpayBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#0F172A",
+    borderRadius: 14,
+    height: 50,
+    marginBottom: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  ownpayBtnText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 15,
+  },
+  ownpayPill: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  ownpayPillText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 11,
+  },
+  orDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.borderLight,
+  },
+  orText: {
+    paddingHorizontal: 10,
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
   qrSection: {
     alignItems: "center",
     backgroundColor: "#fff",
-    padding: 12,
+    padding: 10,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.borderLight,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   qrImage: {
-    width: 170,
-    height: 170,
+    width: 150,
+    height: 150,
   },
   qrHint: {
-    fontSize: 12.5,
+    fontSize: 12,
     color: colors.textMuted,
     fontWeight: "600",
-    marginTop: 8,
+    marginTop: 6,
     textAlign: "center",
   },
   upiCopyRow: {
@@ -611,7 +730,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   upiLabel: {
     fontSize: 11.5,
