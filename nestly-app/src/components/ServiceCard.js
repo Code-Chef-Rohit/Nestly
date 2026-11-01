@@ -5,6 +5,7 @@ import colors from "../theme/colors";
 
 export default function ServiceCard({ service }) {
   const phoneNumber = service.phone || "9876543210";
+  const price = service.starting_price || service.startingPrice;
 
   const handleCall = () => {
     const url = `tel:${phoneNumber}`;
@@ -22,14 +23,24 @@ export default function ServiceCard({ service }) {
   };
 
   const handleBook = () => {
+    const numericPrice = Number(price) || 299;
+    const commission = Math.round(numericPrice * 0.10); // 10% platform fee
+
     Alert.alert(
-      "Book Service",
-      `Would you like to request an appointment with ${service.name} (${service.category})?`,
+      `Book ${service.name}`,
+      `Service: ${service.category}\n` +
+      `Base Charge: ₹${numericPrice}\n` +
+      `Nestly 10% Platform Protection: ₹${commission}\n\n` +
+      `Confirm your booking request? The verified provider will call you immediately.`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Confirm Request",
-          onPress: () => Alert.alert("Request Sent!", `${service.name} will contact you shortly.`),
+          text: "Confirm Booking",
+          onPress: () =>
+            Alert.alert(
+              "Booking Confirmed! 🛠️",
+              `${service.name} has been notified and will call you on your registered number.`
+            ),
         },
       ]
     );
@@ -49,10 +60,10 @@ export default function ServiceCard({ service }) {
           <Text style={styles.category}>{service.category}</Text>
         </View>
 
-        {service.startingPrice && (
+        {price && (
           <View style={styles.priceContainer}>
             <Text style={styles.priceLabel}>Starting from</Text>
-            <Text style={styles.priceValue}>₹{service.startingPrice}</Text>
+            <Text style={styles.priceValue}>₹{price}</Text>
           </View>
         )}
       </View>
@@ -72,7 +83,7 @@ export default function ServiceCard({ service }) {
         <View style={styles.metaItem}>
           <Ionicons name="shield-checkmark-outline" size={15} color={colors.primary} />
           <Text style={[styles.metaText, { color: colors.primary, fontWeight: "600" }]}>
-            Neighbourhood Verified
+            Verified Partner (10% Guarantee)
           </Text>
         </View>
       </View>

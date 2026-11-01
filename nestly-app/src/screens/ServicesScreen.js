@@ -24,7 +24,7 @@ const DEFAULT_COMMUNITY_SERVICES = [
     category: "Plumber",
     phone: "9876543211",
     rating: "4.9",
-    startingPrice: "299",
+    starting_price: "299",
     verified: true,
     distanceKm: "0.8",
   },
@@ -34,7 +34,7 @@ const DEFAULT_COMMUNITY_SERVICES = [
     category: "Electrician",
     phone: "9876543212",
     rating: "4.8",
-    startingPrice: "199",
+    starting_price: "199",
     verified: true,
     distanceKm: "1.2",
   },
@@ -44,7 +44,7 @@ const DEFAULT_COMMUNITY_SERVICES = [
     category: "Health & Care",
     phone: "14567",
     rating: "5.0",
-    startingPrice: "0",
+    starting_price: "0",
     verified: true,
     distanceKm: "0.5",
   },
@@ -54,7 +54,7 @@ const DEFAULT_COMMUNITY_SERVICES = [
     category: "AC Repair",
     phone: "9876543213",
     rating: "4.7",
-    startingPrice: "399",
+    starting_price: "399",
     verified: true,
     distanceKm: "1.5",
   },
@@ -64,35 +64,36 @@ const DEFAULT_COMMUNITY_SERVICES = [
     category: "Cleaning",
     phone: "9876543214",
     rating: "4.8",
-    startingPrice: "499",
+    starting_price: "499",
     verified: true,
     distanceKm: "2.0",
   },
 ];
 
-export default function ServicesScreen() {
+export default function ServicesScreen({ navigation }) {
   const { community, user } = useAuth();
   const [tab, setTab] = useState("services"); // 'services' | 'issues'
   const [category, setCategory] = useState("All");
 
-  // Cached Services Query
+  // Cached Services Query - real Supabase table
   const {
     data: dbServices = [],
     isLoading: servicesLoading,
     isRefetching: servicesRefetching,
     refetch: refetchServices,
   } = useQuery({
-    queryKey: ["community_services"],
+    queryKey: ["community_services", community?.id],
     queryFn: async () => {
       if (!isSupabaseConfigured) return [];
-      const { data, error } = await supabase
-        .from("services")
-        .select("*")
-        .order("rating", { ascending: false });
+      let query = supabase.from("services").select("*").order("rating", { ascending: false });
+      if (community?.id) {
+        query = query.or(`community_id.eq.${community.id},community_id.is.null`);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 60 * 5,
   });
 
   // Blend with default community services if DB is empty so screen is never blank
@@ -130,12 +131,25 @@ export default function ServicesScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.contentWrap}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Services & Civic Help</Text>
-          <Text style={styles.subtitle}>
-            One-touch verified local help for {community?.name || "your area"}
-          </Text>
+        {/* Header Row */}
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Services & Civic Help</Text>
+            <Text style={styles.subtitle} numberOfLines={1}>
+              Verified local pros for {community?.name || "your area"}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.addServiceBtn}
+            onPress={() => navigation.navigate("AddService")}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="List Your Service"
+          >
+            <Ionicons name="add" size={18} color="#fff" />
+            <Text style={styles.addServiceBtnText}>+ List Service</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Big Accessible Tabs */}
@@ -173,8 +187,26 @@ export default function ServicesScreen() {
 
         {tab === "services" ? (
           <>
+            {/* Monetization / Partner Banner */}
+            <TouchableOpacity
+              style={styles.partnerBanner}
+              onPress={() => navigation.navigate("AddService")}
+              activeOpacity={0.85}
+            >
+              <View style={styles.partnerIconCircle}>
+                <Ionicons name="briefcase" size={20} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.partnerBannerTitle}>Provide a service to neighbours?</Text>
+                <Text style={styles.partnerBannerSubtitle}>
+                  List your service in {community?.name || "your community"} with 10% platform protection.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+            </TouchableOpacity>
+
             {/* Category Filter Chips */}
-            <View style={{ height: 50, marginBottom: 8 }}>
+            <View style={{ height: 46, marginBottom: 8 }}>
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -271,21 +303,43 @@ const styles = StyleSheet.create({
     maxWidth: 540,
     alignSelf: "center",
   },
-  header: {
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     marginBottom: 16,
+    gap: 12,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "900",
     color: colors.text,
     letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13.5,
     color: colors.textMuted,
-    marginTop: 4,
-    lineHeight: 20,
+    marginTop: 2,
+  },
+  addServiceBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 12,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  addServiceBtnText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 13.5,
   },
   tabRow: {
     flexDirection: "row",
@@ -317,9 +371,40 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: "#fff",
   },
+  partnerBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: 14,
+    padding: 12,
+    marginHorizontal: 20,
+    marginBottom: 14,
+    gap: 10,
+  },
+  partnerIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  partnerBannerTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.primaryDark,
+  },
+  partnerBannerSubtitle: {
+    fontSize: 12,
+    color: colors.text,
+    marginTop: 2,
+    lineHeight: 16,
+  },
   filterBar: {
     paddingHorizontal: 20,
-    gap: 10,
+    gap: 8,
     alignItems: "center",
   },
   chip: {
@@ -327,9 +412,9 @@ const styles = StyleSheet.create({
     borderColor: colors.borderLight,
     borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 7,
     backgroundColor: colors.surface,
-    height: 40,
+    height: 38,
     justifyContent: "center",
   },
   chipActive: {
@@ -337,7 +422,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primaryDark,
   },
   chipText: {
-    fontSize: 13.5,
+    fontSize: 13,
     color: colors.textMuted,
     fontWeight: "700",
   },
@@ -346,7 +431,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
-    paddingTop: 8,
+    paddingTop: 4,
     paddingBottom: 40,
   },
   center: {

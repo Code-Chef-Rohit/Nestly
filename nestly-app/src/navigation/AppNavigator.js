@@ -15,6 +15,7 @@ import CommunityFeedScreen from "../screens/CommunityFeedScreen";
 import CreatePostScreen from "../screens/CreatePostScreen";
 import ReportIssueScreen from "../screens/ReportIssueScreen";
 import ServicesScreen from "../screens/ServicesScreen";
+import AddServiceScreen from "../screens/AddServiceScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 
 const Stack = createNativeStackNavigator();
@@ -75,6 +76,7 @@ function MainStack() {
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="CreatePost" component={CreatePostScreen} presentation="modal" />
       <Stack.Screen name="ReportIssue" component={ReportIssueScreen} presentation="modal" />
+      <Stack.Screen name="AddService" component={AddServiceScreen} presentation="modal" />
       <Stack.Screen name="LocationSelection" component={LocationSelectionScreen} />
       <Stack.Screen name="JoinCommunity" component={JoinCommunityScreen} />
     </Stack.Navigator>
