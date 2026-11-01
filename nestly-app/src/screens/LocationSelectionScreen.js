@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Modal,
   StyleSheet,
   Text,
@@ -157,10 +158,14 @@ export default function LocationSelectionScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.contentWrap}>
-        {/* Header */}
+        {/* Branded Logo Header */}
         <View style={styles.header}>
           <View style={styles.iconWrap}>
-            <Ionicons name="location" size={32} color={colors.primary} />
+            <Image
+              source={require("../../assets/logo.png")}
+              style={styles.logoImage}
+              resizeMode="cover"
+            />
           </View>
           <Text style={styles.title}>Select Your Community</Text>
           <Text style={styles.subtitle}>
@@ -358,13 +363,22 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   iconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.primaryLight,
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 14,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  logoImage: {
+    width: "100%",
+    height: "100%",
   },
   title: {
     fontSize: 24,

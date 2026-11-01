@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Image,
   Linking,
   Modal,
   RefreshControl,
@@ -142,23 +143,30 @@ export default function HomeScreen({ navigation }) {
       }
     >
       <View style={styles.contentWrap}>
-        {/* Header Row */}
+        {/* Header Row with Brand Logo */}
         <View style={styles.headerRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.greeting}>
-              {greeting()}, {user?.name || "Neighbour"} 👋
-            </Text>
-            <TouchableOpacity
-              style={styles.locationChip}
-              onPress={() => navigation.navigate("LocationSelection")}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="location-sharp" size={16} color={colors.primary} />
-              <Text style={styles.locationText} numberOfLines={1}>
-                {community?.name || "Select Community"}
+          <View style={styles.brandContainer}>
+            <Image
+              source={require("../../assets/logo.png")}
+              style={styles.headerLogo}
+              resizeMode="cover"
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.greeting} numberOfLines={1}>
+                {greeting()}, {user?.name?.split(" ")[0] || "Neighbour"} 👋
               </Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.locationChip}
+                onPress={() => navigation.navigate("LocationSelection")}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="location-sharp" size={15} color={colors.primary} />
+                <Text style={styles.locationText} numberOfLines={1}>
+                  {community?.name || "Select Community"}
+                </Text>
+                <Ionicons name="chevron-forward" size={13} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.headerRight}>
@@ -363,6 +371,22 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
+    gap: 12,
+  },
+  brandContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headerLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   greeting: {
     fontSize: 22,

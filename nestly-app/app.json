@@ -6,8 +6,11 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
     "splash": {
-      "backgroundColor": "#1F8A70"
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0D7A5F"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -17,10 +20,12 @@
     "android": {
       "package": "com.nestly.app",
       "adaptiveIcon": {
-        "backgroundColor": "#1F8A70"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0D7A5F"
       }
     },
     "web": {
+      "favicon": "./assets/icon.png",
       "bundler": "metro"
     }
   }

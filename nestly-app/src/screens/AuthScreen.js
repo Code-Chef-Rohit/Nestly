@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -64,10 +65,14 @@ export default function AuthScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.contentWrap}>
-          {/* Header */}
+          {/* Branded App Logo Header */}
           <View style={styles.header}>
             <View style={styles.logoCircle}>
-              <Ionicons name="home" size={36} color="#fff" />
+              <Image
+                source={require("../../assets/logo.png")}
+                style={styles.logoImage}
+                resizeMode="cover"
+              />
             </View>
             <Text style={styles.title}>Nestly</Text>
             <Text style={styles.subtitle}>
@@ -243,18 +248,22 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.primary,
+    width: 88,
+    height: 88,
+    borderRadius: 24,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
+    marginBottom: 16,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  logoImage: {
+    width: "100%",
+    height: "100%",
   },
   title: {
     fontSize: 32,

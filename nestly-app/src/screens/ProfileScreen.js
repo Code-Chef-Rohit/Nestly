@@ -1,5 +1,5 @@
 import React from "react";
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import colors from "../theme/colors";
 import { useAuth } from "../context/AuthContext";
@@ -114,6 +114,17 @@ export default function ProfileScreen({ navigation }) {
               ? "Live Supabase Cloud Connected"
               : "Running in offline mode"}
           </Text>
+        </View>
+
+        {/* Brand Badge */}
+        <View style={styles.brandFooter}>
+          <Image
+            source={require("../../assets/logo.png")}
+            style={styles.brandLogo}
+            resizeMode="contain"
+          />
+          <Text style={styles.brandTitle}>Nestly</Text>
+          <Text style={styles.brandSubtitle}>Neighbourhood Care & Verified Community Services • v1.0.0</Text>
         </View>
 
         {/* Sign Out Button */}
@@ -257,6 +268,34 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: "600",
     flex: 1,
+  },
+  brandFooter: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+  brandLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  brandTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.primary,
+    letterSpacing: 0.3,
+  },
+  brandSubtitle: {
+    fontSize: 11.5,
+    color: colors.textMuted,
+    textAlign: "center",
+    marginTop: 4,
   },
   signOutBtn: {
     flexDirection: "row",

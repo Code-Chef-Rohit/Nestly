@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   Modal,
   StyleSheet,
   Text,
@@ -182,7 +183,14 @@ export default function JoinCommunityScreen({ route, navigation }) {
           >
             <Ionicons name="arrow-back" size={26} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.title}>Neighbourhoods</Text>
+          <View style={styles.headerTitleWrap}>
+            <Image
+              source={require("../../assets/logo.png")}
+              style={styles.headerLogo}
+              resizeMode="contain"
+            />
+            <Text style={styles.title}>Neighbourhoods</Text>
+          </View>
           <View style={{ width: 26 }} />
         </View>
 
@@ -354,6 +362,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 8,
+  },
+  headerTitleWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerLogo: {
+    width: 28,
+    height: 28,
+    borderRadius: 7,
   },
   title: {
     fontSize: 22,
