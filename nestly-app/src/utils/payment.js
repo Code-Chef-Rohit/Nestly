@@ -239,29 +239,52 @@ export async function launchOwnPayCheckout(checkoutUrl) {
 }
 
 /**
- * Builds standard National Payments Corporation of India (NPCI) UPI Intent URL
- * Works on Google Pay, PhonePe, Paytm, BHIM, Cred, and all Indian banking apps.
+ * Builds standard National Payments Corporation of India (NPCI) UPI Intent URL.
+ * Works seamlessly across Google Pay, PhonePe, Paytm, BHIM, Cred, and all Indian banking apps.
+ * IMPORTANT: For individual (P2P/Kotak811) VPAs, omitting 'tr' and 'mc' prevents
+ * PSP apps from throwing "Merchant not recognized / Invalid QR code" errors.
  */
 export function buildUpiPayUrl({
   upiId = PAYMENT_CONFIG.adminUpiId,
   payeeName = PAYMENT_CONFIG.adminPayeeName,
   amount = PAYMENT_CONFIG.listingFee,
-  transactionNote = "Nestly Service Listing Fee",
-  transactionRef = `NST${Date.now()}`,
-}) {
-  const cleanUpi = upiId.trim();
-  const cleanName = encodeURIComponent(payeeName.trim());
-  const cleanNote = encodeURIComponent(transactionNote.trim());
-  const cleanRef = transactionRef.replace(/[^a-zA-Z0-9]/g, "");
-  const formattedAmount = Number(amount).toFixed(2);
-  return `upi://pay?pa=${cleanUpi}&pn=${cleanName}&am=${formattedAmount}&cu=INR&tn=${cleanNote}&tr=${cleanRef}`;
+  transactionNote = "Nestly Service Listing",
+  includeAmount = true,
+} = {}) {
+  const cleanUpi = (upiId || "").trim();
+  const cleanName = encodeURIComponent((payeeName || "Nestly Platform").trim());
+  const cleanNote = encodeURIComponent((transactionNote || "Nestly Listing").trim());
+
+  if (includeAmount && amount) {
+    const formattedAmount = Number(amount).toFixed(2);
+    return `upi://pay?pa=${cleanUpi}&pn=${cleanName}&am=${formattedAmount}&cu=INR&tn=${cleanNote}`;
+  }
+  return `upi://pay?pa=${cleanUpi}&pn=${cleanName}&cu=INR&tn=${cleanNote}`;
+}
+
+/**
+ * Builds app-specific deep links for direct 1-tap checkout (GPay, PhonePe, Paytm)
+ */
+export function buildAppSpecificUpiUrl(appScheme, options = {}) {
+  const baseUpiUrl = buildUpiPayUrl(options);
+  const query = baseUpiUrl.replace(/^upi:\/\/pay\?/, "");
+  switch (appScheme) {
+    case "gpay":
+      return `tez://upi/pay?${query}`;
+    case "phonepe":
+      return `phonepe://pay?${query}`;
+    case "paytm":
+      return `paytmmp://pay?${query}`;
+    default:
+      return baseUpiUrl;
+  }
 }
 
 /**
  * Generates dynamic high-res QR code image URL for scanning
  */
 export function getUpiQrCodeUrl(upiUrl) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=10&data=${encodeURIComponent(
+  return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=12&format=png&data=${encodeURIComponent(
     upiUrl
   )}`;
 }
@@ -270,32 +293,46 @@ export function getUpiQrCodeUrl(upiUrl) {
  * Opens native UPI intent sheet (GPay / PhonePe / Paytm / BHIM) on mobile device
  */
 export async function launchUpiApp({
+  app = "generic",
   amount = PAYMENT_CONFIG.listingFee,
-  transactionNote = "Nestly Service Listing Fee",
-  transactionRef = `NST${Date.now()}`,
-}) {
-  const upiUrl = buildUpiPayUrl({ amount, transactionNote, transactionRef });
-
+  transactionNote = "Nestly Service Listing",
+  upiId = PAYMENT_CONFIG.adminUpiId,
+  payeeName = PAYMENT_CONFIG.adminPayeeName,
+} = {}) {
   if (Platform.OS === "web") {
     return false;
   }
 
+  const specificUrl = buildAppSpecificUpiUrl(app, {
+    upiId,
+    payeeName,
+    amount,
+    transactionNote,
+  });
+  const fallbackGenericUrl = buildUpiPayUrl({
+    upiId,
+    payeeName,
+    amount,
+    transactionNote,
+  });
+
   try {
-    // Attempt direct URL launch (reliable on Android 11+ and iOS)
-    await Linking.openURL(upiUrl);
+    const canOpen = await Linking.canOpenURL(specificUrl);
+    if (canOpen) {
+      await Linking.openURL(specificUrl);
+      return true;
+    }
+  } catch (e) {
+    // fallback
+  }
+
+  try {
+    await Linking.openURL(fallbackGenericUrl);
     return true;
   } catch (err) {
     console.warn("Direct UPI launch notice:", err.message);
-    try {
-      const supported = await Linking.canOpenURL(upiUrl);
-      if (supported) {
-        await Linking.openURL(upiUrl);
-        return true;
-      }
-    } catch (e2) {}
+    return false;
   }
-
-  return false;
 }
 
 /**
@@ -304,7 +341,20 @@ export async function launchUpiApp({
 export async function copyUpiIdToClipboard(upiId = PAYMENT_CONFIG.adminUpiId) {
   try {
     await Clipboard.setStringAsync(upiId);
-    Alert.alert("UPI ID Copied 📋", `${upiId} copied to clipboard.`);
+    Alert.alert("UPI ID Copied 📋", `${upiId} copied to clipboard.\n\nYou can now open Google Pay, PhonePe, or Paytm and paste it to pay.`);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Generic clipboard copier with custom toast/alert
+ */
+export async function copyToClipboard(text, label = "Details") {
+  try {
+    await Clipboard.setStringAsync(text);
+    Alert.alert(`${label} Copied 📋`, `${text} copied to clipboard.`);
     return true;
   } catch (e) {
     return false;

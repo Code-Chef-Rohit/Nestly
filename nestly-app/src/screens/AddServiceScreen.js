@@ -23,6 +23,7 @@ import {
   PAYMENT_CONFIG,
   buildUpiPayUrl,
   copyUpiIdToClipboard,
+  copyToClipboard,
   createOwnPaySession,
   getUpiQrCodeUrl,
   isOwnPayConfigured,
@@ -57,6 +58,8 @@ export default function AddServiceScreen({ navigation }) {
   const [isVerifyingUtr, setIsVerifyingUtr] = useState(false);
   const [isAutoChecking, setIsAutoChecking] = useState(false);
   const [paymentStatusText, setPaymentStatusText] = useState("Awaiting Payment");
+  const [copiedField, setCopiedField] = useState(null);
+  const [qrWithAmount, setQrWithAmount] = useState(true);
   const pollingStopRef = useRef(null);
 
   const listingFee = PAYMENT_CONFIG.listingFee;
@@ -216,15 +219,22 @@ export default function AddServiceScreen({ navigation }) {
     }
   }
 
-  async function handleLaunchUpi() {
+  async function handleCopy(text, fieldName) {
+    await copyToClipboard(text, fieldName);
+    setCopiedField(fieldName);
+    setTimeout(() => {
+      setCopiedField(null);
+    }, 2500);
+  }
+
+  async function handleLaunchSpecificApp(app = "generic") {
     if (paymentId) {
       startAutoVerification(paymentId);
     }
-
     const launched = await launchUpiApp({
+      app,
       amount: listingFee,
       transactionNote: `Nestly Listing: ${name.trim()}`,
-      transactionRef,
     });
 
     if (!launched && Platform.OS === "web") {
@@ -233,6 +243,10 @@ export default function AddServiceScreen({ navigation }) {
         `On desktop web, scan the QR code using Google Pay/PhonePe/Paytm or copy the UPI ID: ${PAYMENT_CONFIG.adminUpiId}`
       );
     }
+  }
+
+  async function handleLaunchUpi() {
+    await handleLaunchSpecificApp("generic");
   }
 
   async function handleVerifyUtr() {
@@ -325,9 +339,9 @@ export default function AddServiceScreen({ navigation }) {
   }
 
   const upiPayUrl = buildUpiPayUrl({
-    amount: listingFee,
+    amount: qrWithAmount ? listingFee : undefined,
+    includeAmount: qrWithAmount,
     transactionNote: `Nestly Listing: ${name || "Service"}`,
-    transactionRef: transactionRef || "NST-123",
   });
   const qrCodeUrl = getUpiQrCodeUrl(upiPayUrl);
 
@@ -532,7 +546,7 @@ export default function AddServiceScreen({ navigation }) {
             {/* Modal Header */}
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Ionicons name="wallet" size={24} color={colors.primary} />
+                <Ionicons name="shield-checkmark" size={24} color={colors.primary} />
                 <Text style={styles.modalTitle}>Checkout & Verification</Text>
               </View>
               <TouchableOpacity
@@ -547,21 +561,73 @@ export default function AddServiceScreen({ navigation }) {
             </View>
 
             <ScrollView
-              style={{ maxHeight: 520 }}
-              contentContainerStyle={{ paddingBottom: 16 }}
+              style={{ maxHeight: 560 }}
+              contentContainerStyle={{ paddingBottom: 24 }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
               <Text style={styles.modalSub}>
-                Pay the verification fee to activate your service listing for{" "}
-                <Text style={{ fontWeight: "700", color: colors.text }}>{name}</Text>.
+                Activate your 1-year verified resident listing for{" "}
+                <Text style={{ fontWeight: "700", color: colors.text }}>{name || "your service"}</Text>.
               </Text>
 
-              {/* Price Badge */}
+              {/* Order & Service Details Summary */}
+              <View style={styles.orderSummaryCard}>
+                <Text style={styles.orderSummaryHeader}>Order & Service Details</Text>
+                
+                <View style={styles.orderSummaryRow}>
+                  <Text style={styles.orderSummaryLabel}>Service Name</Text>
+                  <Text style={styles.orderSummaryVal}>{name || "Service"}</Text>
+                </View>
+
+                <View style={styles.orderSummaryRow}>
+                  <Text style={styles.orderSummaryLabel}>Category</Text>
+                  <View style={styles.categoryPill}>
+                    <Text style={styles.categoryPillText}>{category}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.orderSummaryRow}>
+                  <Text style={styles.orderSummaryLabel}>Registered Contact</Text>
+                  <Text style={styles.orderSummaryVal}>{phone || "Not specified"}</Text>
+                </View>
+
+                <View style={styles.orderSummaryRow}>
+                  <Text style={styles.orderSummaryLabel}>Community</Text>
+                  <Text style={styles.orderSummaryVal}>{community?.name || "Local Community"}</Text>
+                </View>
+
+                <View style={styles.orderSummaryRow}>
+                  <Text style={styles.orderSummaryLabel}>Listing Validity</Text>
+                  <Text style={[styles.orderSummaryVal, { color: colors.primary, fontWeight: "800" }]}>
+                    365 Days Verified Listing
+                  </Text>
+                </View>
+
+                {/* Itemized Fee Breakdown */}
+                <View style={styles.invoiceDivider} />
+                
+                <View style={styles.orderSummaryRow}>
+                  <Text style={styles.orderSummarySub}>Annual Verification & Onboarding</Text>
+                  <Text style={styles.orderSummarySub}>₹83.90</Text>
+                </View>
+
+                <View style={styles.orderSummaryRow}>
+                  <Text style={styles.orderSummarySub}>Applicable GST (18%)</Text>
+                  <Text style={styles.orderSummarySub}>₹15.10</Text>
+                </View>
+
+                <View style={[styles.orderSummaryRow, { marginTop: 6 }]}>
+                  <Text style={[styles.orderSummaryLabel, { fontSize: 15, fontWeight: "900" }]}>Total Payable</Text>
+                  <Text style={[styles.orderSummaryVal, { fontSize: 18, fontWeight: "900", color: colors.primary }]}>₹{listingFee}</Text>
+                </View>
+              </View>
+
+              {/* Price Banner */}
               <View style={styles.feeBanner}>
                 <View>
                   <Text style={styles.feeLabel}>Total Amount Payable</Text>
-                  <Text style={styles.feeSub}>Includes verification & partner badge</Text>
+                  <Text style={styles.feeSub}>0% Surcharge • NPCI Bank Transfer</Text>
                 </View>
                 <Text style={styles.feeValue}>₹{listingFee}</Text>
               </View>
@@ -571,12 +637,151 @@ export default function AddServiceScreen({ navigation }) {
                 {isAutoChecking ? (
                   <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
+                  <Ionicons name="radio-button-on" size={18} color="#16A34A" />
                 )}
                 <Text style={styles.autoVerifyText}>{paymentStatusText}</Text>
               </View>
 
-              {/* OwnPay Gateway Button */}
+              {/* Direct 1-Tap UPI Apps Grid */}
+              <Text style={styles.sectionHeaderTitle}>1-Tap Pay via UPI Apps</Text>
+              <View style={styles.upiAppsGrid}>
+                <TouchableOpacity
+                  style={[styles.upiAppBtn, { borderColor: "#E5E7EB" }]}
+                  onPress={() => handleLaunchSpecificApp("gpay")}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="logo-google" size={18} color="#EA4335" />
+                  <Text style={styles.upiAppBtnText}>Google Pay</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.upiAppBtn, { backgroundColor: "#5F259F", borderColor: "#5F259F" }]}
+                  onPress={() => handleLaunchSpecificApp("phonepe")}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="flash" size={18} color="#fff" />
+                  <Text style={[styles.upiAppBtnText, { color: "#fff" }]}>PhonePe</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.upiAppBtn, { backgroundColor: "#00BAF2", borderColor: "#00BAF2" }]}
+                  onPress={() => handleLaunchSpecificApp("paytm")}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="wallet-outline" size={18} color="#fff" />
+                  <Text style={[styles.upiAppBtnText, { color: "#fff" }]}>Paytm</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.upiAppBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                  onPress={() => handleLaunchSpecificApp("generic")}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="qr-code-outline" size={18} color="#fff" />
+                  <Text style={[styles.upiAppBtnText, { color: "#fff" }]}>Any UPI App</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* UPI QR Code Section */}
+              <View style={styles.qrSection}>
+                <View style={styles.qrHeaderRow}>
+                  <Text style={styles.qrTitle}>Scan to Pay ₹{listingFee}</Text>
+                  <TouchableOpacity
+                    style={styles.qrToggleBtn}
+                    onPress={() => setQrWithAmount(!qrWithAmount)}
+                  >
+                    <Text style={styles.qrToggleText}>
+                      {qrWithAmount ? "Amount Fixed (₹99)" : "Open Amount"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Image
+                  source={{ uri: qrCodeUrl }}
+                  style={styles.qrImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.qrHint}>
+                  Scan using Google Pay, PhonePe, Paytm, BHIM, Cred, or any banking app
+                </Text>
+              </View>
+
+              {/* Beneficiary Bank Account Details Card */}
+              <View style={styles.beneficiaryCard}>
+                <Text style={styles.beneficiaryHeader}>Official Receiving Beneficiary</Text>
+
+                {/* UPI ID Row */}
+                <View style={styles.beneficiaryRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.beneficiaryLabel}>Official UPI ID / VPA</Text>
+                    <Text style={styles.beneficiaryVal}>{PAYMENT_CONFIG.adminUpiId}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.copyActionBtn,
+                      copiedField === "upi" ? styles.copyActionBtnSuccess : null,
+                    ]}
+                    onPress={() => handleCopy(PAYMENT_CONFIG.adminUpiId, "upi")}
+                  >
+                    <Ionicons
+                      name={copiedField === "upi" ? "checkmark" : "copy-outline"}
+                      size={14}
+                      color={copiedField === "upi" ? "#fff" : colors.primary}
+                    />
+                    <Text
+                      style={[
+                        styles.copyActionBtnText,
+                        copiedField === "upi" ? { color: "#fff" } : null,
+                      ]}
+                    >
+                      {copiedField === "upi" ? "Copied!" : "Copy"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Mobile Number Row */}
+                <View style={styles.beneficiaryRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.beneficiaryLabel}>PhonePe / GPay Mobile No.</Text>
+                    <Text style={styles.beneficiaryVal}>7735550648</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.copyActionBtn,
+                      copiedField === "phone" ? styles.copyActionBtnSuccess : null,
+                    ]}
+                    onPress={() => handleCopy("7735550648", "phone")}
+                  >
+                    <Ionicons
+                      name={copiedField === "phone" ? "checkmark" : "copy-outline"}
+                      size={14}
+                      color={copiedField === "phone" ? "#fff" : colors.primary}
+                    />
+                    <Text
+                      style={[
+                        styles.copyActionBtnText,
+                        copiedField === "phone" ? { color: "#fff" } : null,
+                      ]}
+                    >
+                      {copiedField === "phone" ? "Copied!" : "Copy"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Bank Name */}
+                <View style={[styles.beneficiaryRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                  <View>
+                    <Text style={styles.beneficiaryLabel}>Receiving Bank</Text>
+                    <Text style={styles.beneficiaryVal}>Kotak Mahindra Bank (Kotak 811)</Text>
+                  </View>
+                  <View style={styles.verifiedPill}>
+                    <Ionicons name="checkmark-circle" size={14} color="#15803D" />
+                    <Text style={styles.verifiedPillText}>Verified</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* OwnPay Gateway Hosted Web Button */}
               <TouchableOpacity
                 style={styles.ownpayBtn}
                 onPress={handleOwnPayCheckout}
@@ -587,70 +792,25 @@ export default function AddServiceScreen({ navigation }) {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <>
-                    <Ionicons name="flash" size={18} color="#fff" />
+                    <Ionicons name="open-outline" size={18} color="#fff" />
                     <Text style={styles.ownpayBtnText}>
-                      Pay with OwnPay Gateway
+                      Open OwnPay Hosted Checkout Page
                     </Text>
                     <View style={styles.ownpayPill}>
-                      <Text style={styles.ownpayPillText}>Auto-Verify</Text>
+                      <Text style={styles.ownpayPillText}>Web</Text>
                     </View>
                   </>
                 )}
               </TouchableOpacity>
 
-              <View style={styles.orDivider}>
-                <View style={styles.orLine} />
-                <Text style={styles.orText}>or direct UPI instant transfer</Text>
-                <View style={styles.orLine} />
-              </View>
-
-              {/* UPI QR Code Section */}
-              <View style={styles.qrSection}>
-                <Image
-                  source={{ uri: qrCodeUrl }}
-                  style={styles.qrImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.qrHint}>
-                  Scan with Google Pay, PhonePe, Paytm, or any UPI app
-                </Text>
-              </View>
-
-              {/* UPI ID Copy Row */}
-              <View style={styles.upiCopyRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.upiLabel}>Official UPI ID / VPA</Text>
-                  <Text style={styles.upiValue}>{PAYMENT_CONFIG.adminUpiId}</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.copyBtn}
-                  onPress={() => copyUpiIdToClipboard(PAYMENT_CONFIG.adminUpiId)}
-                >
-                  <Ionicons name="copy-outline" size={16} color={colors.primary} />
-                  <Text style={styles.copyBtnText}>Copy</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Launch App Button (Mobile Intent) */}
-              <TouchableOpacity
-                style={styles.launchUpiBtn}
-                onPress={handleLaunchUpi}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="phone-portrait-outline" size={20} color="#fff" />
-                <Text style={styles.launchUpiBtnText}>
-                  Open UPI App (GPay / PhonePe / Paytm)
-                </Text>
-              </TouchableOpacity>
-
               {/* Automatic UTR Verification Box */}
               <View style={styles.utrCard}>
                 <View style={styles.utrHeaderRow}>
-                  <Ionicons name="checkmark-done-circle" size={20} color={colors.primary} />
-                  <Text style={styles.utrCardTitle}>Paid via UPI? Auto-Verify with UTR</Text>
+                  <Ionicons name="checkmark-done-circle" size={22} color={colors.primary} />
+                  <Text style={styles.utrCardTitle}>Paid? Auto-Verify with 12-Digit UTR</Text>
                 </View>
                 <Text style={styles.utrCardDesc}>
-                  Enter the 12-digit UTR / UPI Ref No. from your bank receipt to verify and publish instantly.
+                  Open your UPI app receipt (GPay / PhonePe / Paytm), copy the 12-digit UTR / UPI Ref / RRN No., and verify below:
                 </Text>
                 <View style={styles.utrInputRow}>
                   <TextInput
@@ -682,7 +842,16 @@ export default function AddServiceScreen({ navigation }) {
                     )}
                   </TouchableOpacity>
                 </View>
+                <Text style={styles.utrCounterText}>{utrInput.length} / 12 digits</Text>
                 {utrError ? <Text style={styles.utrErrorText}>{utrError}</Text> : null}
+              </View>
+
+              {/* Commission Transparency Callout */}
+              <View style={styles.commissionNoteCard}>
+                <Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />
+                <Text style={styles.commissionNoteText}>
+                  <Text style={{ fontWeight: "800" }}>10% Platform Protection:</Text> Nestly deducts a 10% fee only when you get bookings from neighbours. 90% stays directly with you.
+                </Text>
               </View>
 
               {/* Fallback Publish Button */}
@@ -696,13 +865,18 @@ export default function AddServiceScreen({ navigation }) {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <>
-                    <Ionicons name="cloud-upload-outline" size={20} color="#fff" />
+                    <Ionicons name="checkmark-done" size={20} color="#fff" />
                     <Text style={styles.confirmPublishBtnText}>
-                      I Have Transferred ₹{listingFee} — Publish Now
+                      I Have Transferred ₹{listingFee} — Complete Listing
                     </Text>
                   </>
                 )}
               </TouchableOpacity>
+
+              {/* Help & Support note */}
+              <Text style={styles.supportNoteText}>
+                Need help with payment? Contact community support: +91 7735550648
+              </Text>
             </ScrollView>
           </View>
         </View>
@@ -1195,5 +1369,214 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     marginTop: 6,
+  },
+  orderSummaryCard: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+  },
+  orderSummaryHeader: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  orderSummaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  orderSummaryLabel: {
+    fontSize: 13,
+    color: colors.textMuted,
+    fontWeight: "600",
+  },
+  orderSummaryVal: {
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  orderSummarySub: {
+    fontSize: 12.5,
+    color: colors.textMuted,
+    fontWeight: "500",
+  },
+  categoryPill: {
+    backgroundColor: "#EEF2FF",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  categoryPillText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: "#4338CA",
+  },
+  invoiceDivider: {
+    height: 1,
+    borderStyle: "dashed",
+    borderWidth: 0.5,
+    borderColor: colors.borderLight,
+    marginVertical: 8,
+  },
+  sectionHeaderTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.text,
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  upiAppsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 14,
+  },
+  upiAppBtn: {
+    flex: 1,
+    minWidth: "47%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    backgroundColor: "#FFFFFF",
+    ...shadows.card,
+  },
+  upiAppBtnText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  qrHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    paddingHorizontal: 8,
+    marginBottom: 8,
+  },
+  qrTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  qrToggleBtn: {
+    backgroundColor: colors.surfaceVariant || "#F1F5F9",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  qrToggleText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+  beneficiaryCard: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1.5,
+    borderColor: colors.borderLight,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+  },
+  beneficiaryHeader: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.textMuted,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  beneficiaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingBottom: 8,
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  beneficiaryLabel: {
+    fontSize: 11.5,
+    color: colors.textMuted,
+    fontWeight: "600",
+  },
+  beneficiaryVal: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.text,
+    marginTop: 2,
+  },
+  copyActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  copyActionBtnSuccess: {
+    backgroundColor: colors.primary,
+  },
+  copyActionBtnText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.primaryDark,
+  },
+  verifiedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  verifiedPillText: {
+    fontSize: 11.5,
+    fontWeight: "800",
+    color: "#15803D",
+  },
+  utrCounterText: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 4,
+    textAlign: "right",
+    fontWeight: "600",
+  },
+  commissionNoteCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+  commissionNoteText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textMuted,
+    lineHeight: 16,
+  },
+  supportNoteText: {
+    fontSize: 11.5,
+    color: colors.textMuted,
+    textAlign: "center",
+    marginTop: 10,
+    fontWeight: "600",
   },
 });
