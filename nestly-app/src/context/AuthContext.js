@@ -7,9 +7,9 @@ import { supabase, isSupabaseConfigured } from "../config/supabase";
 WebBrowser.maybeCompleteAuthSession();
 
 const FALLBACK_USER = {
-  id: "u_dev",
-  name: "Demo User",
-  email: "demo@example.com",
+  id: "u_resident",
+  name: "Resident",
+  email: "resident@nestly.app",
   phone: null,
   profile_photo: null,
 };

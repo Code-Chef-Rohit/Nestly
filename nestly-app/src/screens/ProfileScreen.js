@@ -112,7 +112,7 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.statusText}>
             {isSupabaseConfigured
               ? "Live Supabase Cloud Connected"
-              : "Running in offline mode"}
+              : "Local Storage Mode"}
           </Text>
         </View>
 

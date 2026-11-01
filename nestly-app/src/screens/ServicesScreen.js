@@ -22,7 +22,7 @@ export default function ServicesScreen({ navigation }) {
   const [tab, setTab] = useState("services"); // 'services' | 'issues'
   const [category, setCategory] = useState("All");
 
-  // Purely Real Supabase Query — no mock or placeholder data
+  // Community services query
   const {
     data: services = [],
     isLoading: servicesLoading,

@@ -40,6 +40,10 @@ export default function AddServiceScreen({ navigation }) {
   const [startingPrice, setStartingPrice] = useState("");
   const [description, setDescription] = useState("");
 
+  // Validation State
+  const [errors, setErrors] = useState({});
+  const [generalError, setGeneralError] = useState("");
+
   // Payment State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -50,27 +54,51 @@ export default function AddServiceScreen({ navigation }) {
   const commissionPercent = PAYMENT_CONFIG.commissionPercent;
 
   function handleProceedToPayment() {
+    const newErrors = {};
+
     if (!name.trim()) {
-      Alert.alert("Name Required", "Please enter your business or service name.");
-      return;
+      newErrors.name = "Please enter your business or service name.";
+    } else if (name.trim().length < 3) {
+      newErrors.name = "Service name must be at least 3 characters.";
     }
-    if (!phone.trim()) {
-      Alert.alert("Phone Required", "Please provide a contact phone number for customer bookings.");
-      return;
+
+    const cleanPhone = (phone || "").replace(/[^0-9]/g, "");
+    if (!cleanPhone) {
+      newErrors.phone = "Phone number is required so neighbours can contact you.";
+    } else if (cleanPhone.length !== 10) {
+      newErrors.phone = `Phone number must be exactly 10 digits (currently ${cleanPhone.length}).`;
+    } else if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      newErrors.phone = "Please enter a valid 10-digit mobile number starting with 6, 7, 8, or 9.";
     }
-    if (!startingPrice.trim() || isNaN(startingPrice)) {
-      Alert.alert("Valid Price Required", "Please enter a valid starting price in ₹.");
-      return;
+
+    const numericPrice = Number(startingPrice);
+    if (!startingPrice.toString().trim() || isNaN(numericPrice) || numericPrice <= 0) {
+      newErrors.startingPrice = "Please enter a valid starting price in ₹ (e.g. 199).";
+    } else if (numericPrice < 50) {
+      newErrors.startingPrice = "Starting price must be at least ₹50.";
     }
+
     if (!user?.id) {
-      Alert.alert("Account Required", "Please log in to your resident account before listing a service.");
-      return;
+      newErrors.general = "Please log in to your resident account before listing a service.";
+    } else if (!community?.id) {
+      newErrors.general = "Please join a community first to list your service.";
     }
-    if (!community?.id) {
-      Alert.alert("No Community Selected", "Please join a community first to list your service.");
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      const topError =
+        newErrors.name ||
+        newErrors.phone ||
+        newErrors.startingPrice ||
+        newErrors.general ||
+        "Please fill in all required details.";
+      setGeneralError(topError);
+      Alert.alert("Incomplete Details", topError);
       return;
     }
 
+    setErrors({});
+    setGeneralError("");
     const txId = `NST-SRV-${Math.floor(100000 + Math.random() * 900000)}`;
     setTransactionRef(txId);
     setShowPaymentModal(true);
@@ -212,12 +240,17 @@ export default function AddServiceScreen({ navigation }) {
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Service / Business Name *</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.name && styles.inputError]}
               placeholder="e.g. Ramesh Electricals & Inverter Service"
               placeholderTextColor={colors.textMuted}
               value={name}
-              onChangeText={setName}
+              onChangeText={(t) => {
+                setName(t);
+                if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
+                if (generalError) setGeneralError("");
+              }}
             />
+            {errors.name ? <Text style={styles.fieldErrorText}>{errors.name}</Text> : null}
           </View>
 
           {/* Category Picker */}
@@ -246,28 +279,48 @@ export default function AddServiceScreen({ navigation }) {
 
           {/* Phone Number */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Contact Phone Number *</Text>
+            <View style={styles.labelRow}>
+              <Text style={styles.label}>Contact Phone Number *</Text>
+              <Text style={[styles.counterText, phone.length === 10 && styles.counterTextSuccess]}>
+                {phone.length}/10 digits
+              </Text>
+            </View>
             <TextInput
-              style={styles.input}
-              placeholder="e.g. 9876543210 (Residents will call this number)"
+              style={[styles.input, errors.phone && styles.inputError]}
+              placeholder="e.g. 9876543210 (10-digit mobile number)"
               placeholderTextColor={colors.textMuted}
-              keyboardType="phone-pad"
+              keyboardType="number-pad"
+              maxLength={10}
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={(t) => {
+                const digits = t.replace(/[^0-9]/g, "").slice(0, 10);
+                setPhone(digits);
+                if (errors.phone) setErrors((prev) => ({ ...prev, phone: null }));
+                if (generalError) setGeneralError("");
+              }}
             />
+            {errors.phone ? <Text style={styles.fieldErrorText}>{errors.phone}</Text> : null}
           </View>
 
           {/* Starting Price */}
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Starting Visit / Service Price (₹) *</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, errors.startingPrice && styles.inputError]}
               placeholder="e.g. 199"
               placeholderTextColor={colors.textMuted}
               keyboardType="numeric"
               value={startingPrice}
-              onChangeText={setStartingPrice}
+              onChangeText={(t) => {
+                const numericOnly = t.replace(/[^0-9]/g, "");
+                setStartingPrice(numericOnly);
+                if (errors.startingPrice) setErrors((prev) => ({ ...prev, startingPrice: null }));
+                if (generalError) setGeneralError("");
+              }}
             />
+            {errors.startingPrice ? (
+              <Text style={styles.fieldErrorText}>{errors.startingPrice}</Text>
+            ) : null}
           </View>
 
           {/* Description */}
@@ -312,6 +365,17 @@ export default function AddServiceScreen({ navigation }) {
               </Text>
             </View>
           </View>
+
+          {/* Prominent Visual Error Alert Banner */}
+          {generalError ? (
+            <View style={styles.errorAlertBox}>
+              <Ionicons name="alert-circle" size={22} color={colors.danger} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.errorAlertTitle}>Please Complete Required Details</Text>
+                <Text style={styles.errorAlertText}>{generalError}</Text>
+              </View>
+            </View>
+          ) : null}
 
           {/* Proceed to Payment Button */}
           <TouchableOpacity
@@ -500,12 +564,28 @@ const styles = StyleSheet.create({
   fieldGroup: {
     marginBottom: 16,
   },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
   label: {
     fontSize: 15,
     fontWeight: "800",
     color: colors.text,
     marginBottom: 8,
     letterSpacing: -0.2,
+  },
+  counterText: {
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: colors.textMuted,
+    marginBottom: 8,
+  },
+  counterTextSuccess: {
+    color: colors.success,
+    fontWeight: "800",
   },
   input: {
     backgroundColor: colors.surface,
@@ -517,6 +597,18 @@ const styles = StyleSheet.create({
     fontSize: 15.5,
     color: colors.text,
     ...shadows.sm,
+  },
+  inputError: {
+    borderColor: colors.danger,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1.5,
+  },
+  fieldErrorText: {
+    color: colors.danger,
+    fontSize: 12.5,
+    fontWeight: "700",
+    marginTop: 6,
+    marginLeft: 4,
   },
   chipRow: {
     gap: 10,
@@ -590,6 +682,30 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: colors.text,
     lineHeight: 19,
+  },
+  errorAlertBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1.5,
+    borderColor: "#FECACA",
+    borderRadius: radii.md,
+    padding: 14,
+    marginBottom: 16,
+    ...shadows.emergency,
+  },
+  errorAlertTitle: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: colors.danger,
+  },
+  errorAlertText: {
+    fontSize: 13,
+    color: colors.danger,
+    marginTop: 2,
+    lineHeight: 18,
+    fontWeight: "600",
   },
   submitBtn: {
     flexDirection: "row",
