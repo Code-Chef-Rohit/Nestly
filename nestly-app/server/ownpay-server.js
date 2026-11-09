@@ -8,6 +8,24 @@ const http = require("http");
 const url = require("url");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
+
+// Auto-detect LAN IPv4 address dynamically across WiFi and Ethernet
+function detectLanIp() {
+  try {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const net of interfaces[name]) {
+        if (net.family === "IPv4" && !net.internal && net.address !== "127.0.0.1") {
+          return net.address;
+        }
+      }
+    }
+  } catch (e) {
+    // fallback
+  }
+  return "10.88.201.41";
+}
 
 // Auto-load .env
 const envPath = path.resolve(__dirname, "../.env");
@@ -28,7 +46,7 @@ if (fs.existsSync(envPath)) {
 
 const PORT = process.env.OWNPAY_PORT || 4000;
 const HOST = "0.0.0.0";
-const LAN_IP = "10.25.14.41";
+const LAN_IP = detectLanIp();
 const ADMIN_UPI_ID = process.env.EXPO_PUBLIC_ADMIN_UPI_ID || "7735550648@kotak811";
 const ADMIN_PAYEE_NAME = process.env.EXPO_PUBLIC_ADMIN_PAYEE_NAME || "Nestly Platform";
 const API_KEY = process.env.EXPO_PUBLIC_OWNPAY_API_KEY || "nestly_ownpay_live_secret_key";

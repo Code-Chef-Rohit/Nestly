@@ -13,7 +13,7 @@ export const PAYMENT_CONFIG = {
   adminPayeeName: process.env.EXPO_PUBLIC_ADMIN_PAYEE_NAME || "Nestly Platform",
   listingFee: Number(process.env.EXPO_PUBLIC_SERVICE_LISTING_FEE || 99),
   commissionPercent: Number(process.env.EXPO_PUBLIC_COMMISSION_PERCENT || 10),
-  hostLanIp: "10.25.14.41",
+  hostLanIp: "10.88.201.41",
 };
 
 /**
@@ -287,6 +287,13 @@ export function getUpiQrCodeUrl(upiUrl) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=12&format=png&data=${encodeURIComponent(
     upiUrl
   )}`;
+}
+
+/**
+ * Secondary fallback QR code provider via QuickChart in case api.qrserver.com is blocked or slow
+ */
+export function getBackupUpiQrCodeUrl(upiUrl) {
+  return `https://quickchart.io/qr?size=300&margin=2&text=${encodeURIComponent(upiUrl)}`;
 }
 
 /**

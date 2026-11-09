@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useQuery } from "@tanstack/react-query";
 import colors, { shadows, radii } from "../theme/colors";
 import ServiceCard from "../components/ServiceCard";
@@ -31,14 +32,45 @@ export default function ServicesScreen({ navigation }) {
   } = useQuery({
     queryKey: ["community_services", community?.id],
     queryFn: async () => {
-      if (!isSupabaseConfigured) return [];
-      let query = supabase.from("services").select("*").order("created_at", { ascending: false });
-      if (community?.id) {
-        query = query.or(`community_id.eq.${community.id},community_id.is.null`);
+      let localServices = [];
+      try {
+        const stored = await AsyncStorage.getItem("@nestly_local_services");
+        if (stored) {
+          localServices = JSON.parse(stored);
+        }
+      } catch (e) {
+        // ignore storage read error
       }
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
+
+      let remoteServices = [];
+      if (isSupabaseConfigured) {
+        try {
+          let query = supabase.from("services").select("*").order("created_at", { ascending: false });
+          if (community?.id) {
+            query = query.or(`community_id.eq.${community.id},community_id.is.null`);
+          }
+          const { data, error } = await query;
+          if (!error && Array.isArray(data)) {
+            remoteServices = data;
+          }
+        } catch (netErr) {
+          console.warn("Supabase remote services fetch notice:", netErr?.message || netErr);
+        }
+      }
+
+      // Merge local and remote, deduplicating by ID and name
+      const combined = [...localServices];
+      const seenIds = new Set(combined.map((s) => s.id));
+      const seenNames = new Set(combined.map((s) => s.name?.toLowerCase()));
+
+      for (const item of remoteServices) {
+        if (!seenIds.has(item.id) && !seenNames.has(item.name?.toLowerCase())) {
+          combined.push(item);
+          seenIds.add(item.id);
+        }
+      }
+
+      return combined;
     },
     staleTime: 1000 * 60 * 3,
   });
